@@ -1,46 +1,106 @@
 # T3 Code Capacitor
 
-Independent Android wrapper for the current T3 Code web client. The wrapper lives outside the
-upstream-synchronized `t3code` checkout and copies the compiled web app into its own Capacitor
-bundle.
+An independent Android wrapper for [T3 Code](https://github.com/pingdotgg/t3code), built with
+[Capacitor](https://capacitorjs.com/). It keeps the Android-specific adjustments separate from the
+upstream T3 Code checkout, so the web application can continue moving quickly without overwriting
+the mobile wrapper.
 
-## Build and install on Gabriel's tablet
+This repository contains only the wrapper and Android project. The generated T3 Code web bundle is
+copied into `www/` during a build and is not committed.
+
+## Android adaptations
+
+The wrapper makes a small set of runtime changes tailored to Android tablets:
+
+- applies the top, bottom, left, and right safe-area insets in portrait and landscape;
+- keeps the composer, sidebar, title bar, and settings controls clear of Android system bars;
+- follows the active T3 Code theme with light or dark status-bar content;
+- aligns the floating sidebar toggle below the status bar;
+- prevents the keyboard from opening automatically when a chat is opened or changed;
+- makes Enter insert a line break instead of sending, leaving submission to the send button.
+
+The web client itself remains upstream T3 Code. The Android adjustments are injected by
+`MainActivity`, while `scripts/sync-web.mjs` builds the web client and adds Capacitor-compatible
+safe-area fallbacks to the generated bundle.
+
+## Requirements
+
+- Node.js 22 or newer with Corepack
+- pnpm 11
+- Android SDK and `adb`
+- JDK 21
+- a local checkout of T3 Code
+- an HTTPS T3 Code server reachable by the Android device
+
+By default, the build expects the T3 Code checkout in a sibling directory named `t3code`. Set
+`T3CODE_SOURCE` to use another location.
+
+## Configuration
+
+Set the primary server in `capacitor.config.json`:
+
+```json
+{
+  "server": {
+    "url": "https://your-t3-code-server.example.com"
+  }
+}
+```
+
+Use the same URL as `T3CODE_PRIMARY_URL` when refreshing the web bundle. A Tailscale Serve HTTPS
+endpoint works well because it gives the WebView a secure origin while keeping the server private
+to the tailnet.
+
+Pairing is performed independently inside the Android app. Pairing credentials remain in the
+application's private storage and are never written to this repository.
+
+## Build
 
 ```sh
 corepack pnpm install
-corepack pnpm install:tablet
+T3CODE_PRIMARY_URL=https://your-t3-code-server.example.com corepack pnpm build:android
 ```
 
-The Android application id is `tools.t3code.capacitor`, so it can coexist with the Preview,
-development, and legacy Capacitor builds.
+On Apple Silicon Macs with Homebrew OpenJDK 21:
 
-The Gradle build is pinned to the installed Homebrew OpenJDK 21. Capacitor 8 targets Java 21, while
-the generated Gradle 8 project does not run correctly on the Mac's default JDK 25 runtime.
+```sh
+JAVA_HOME=/opt/homebrew/opt/openjdk@21 \
+  T3CODE_PRIMARY_URL=https://your-t3-code-server.example.com \
+  corepack pnpm build:android
+```
 
-## Source refresh
+The debug APK is generated at
+`android/app/build/outputs/apk/debug/app-debug.apk`.
 
-`pnpm build:web` builds `../t3code/apps/web`, copies its `dist` output to `www`, and rewrites every
-safe-area use to prefer Capacitor System Bars' injected `--safe-area-inset-*` values with browser
-`env()` fallbacks. `viewport-fit=cover` remains enabled.
+## Install
 
-The Mac Tailscale endpoint is the default primary environment and the native WebView's same-origin
-server URL. This lets the secure browser session cookie and WebSocket connection work correctly.
-Set `T3CODE_SOURCE` to use a different T3 Code checkout or `T3CODE_PRIMARY_URL` to build a different
-local fallback bundle; update `capacitor.config.json` as well when changing the live primary host.
+Connect an Android device with USB debugging enabled, then run:
 
-`MainActivity` reapplies the Capacitor System Bars insets to full-height and fixed T3 Code surfaces
-after every page load. This keeps the title bar, sidebar footer, composer, and settings controls out
-of both the Android status bar and the gesture/task bar in portrait and landscape. It also follows
-the T3 Code light/dark theme for status-bar content and aligns the floating sidebar control below
-the top inset. On Android, opening or switching chats leaves the composer unfocused, and Enter
-inserts a line break instead of sending; messages are submitted with the send button.
+```sh
+corepack pnpm install:android
+```
 
-## Remote environments
+If more than one device is connected, select one with `ANDROID_SERIAL`:
 
-The client is paired independently with the existing HTTPS Tailscale Serve endpoints:
+```sh
+ANDROID_SERIAL=DEVICE_SERIAL corepack pnpm install:android
+```
 
-- Mac: `https://mac-mini-de-gabriel.tailad333c.ts.net`
-- Linux: `https://gabriel-alonso-msi.tailad333c.ts.net`
+The application id is `tools.t3code.capacitor`, allowing it to coexist with other T3 Code Android
+builds.
 
-Pairing credentials are stored only in the Android application's private storage and are never
-committed to this repository.
+## Updating from T3 Code
+
+Update the separate T3 Code checkout, then rebuild this wrapper:
+
+```sh
+git -C ../t3code pull --ff-only
+T3CODE_PRIMARY_URL=https://your-t3-code-server.example.com corepack pnpm build:android
+```
+
+The wrapper modifications do not need to be reapplied after each upstream update. They live in this
+repository and run again whenever the web bundle is synchronized.
+
+## License
+
+MIT
