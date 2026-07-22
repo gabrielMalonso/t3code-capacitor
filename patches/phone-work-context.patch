@@ -1,0 +1,633 @@
+diff --git a/apps/web/src/components/BranchToolbar.tsx b/apps/web/src/components/BranchToolbar.tsx
+index 0354c2e0c..df723f6f2 100644
+--- a/apps/web/src/components/BranchToolbar.tsx
++++ b/apps/web/src/components/BranchToolbar.tsx
+@@ -1,6 +1,7 @@
+ import { scopeProjectRef, scopeThreadRef } from "@t3tools/client-runtime/environment";
+ import type { EnvironmentId, ThreadId } from "@t3tools/contracts";
+ import {
++  CheckIcon,
+   ChevronDownIcon,
+   CloudIcon,
+   FolderGit2Icon,
+@@ -12,7 +13,8 @@ import { memo, useMemo } from "react";
+ 
+ import { useComposerDraftStore, type DraftId } from "../composerDraftStore";
+ import { useProject, useThread } from "../state/entities";
+-import { useIsMobile } from "../hooks/useMediaQuery";
++import { useIsMobile, useIsPhone } from "../hooks/useMediaQuery";
++import { cn } from "../lib/utils";
+ import {
+   type EnvMode,
+   type EnvironmentOption,
+@@ -68,6 +70,113 @@ interface MobileRunContextSelectorProps {
+   onEnvModeChange: (mode: EnvMode) => void;
+ }
+ 
++const PhoneRunContextPanel = memo(function PhoneRunContextPanel({
++  envLocked,
++  envModeLocked,
++  environmentId,
++  availableEnvironments,
++  showEnvironmentIndicator,
++  onEnvironmentChange,
++  effectiveEnvMode,
++  activeWorktreePath,
++  onEnvModeChange,
++}: MobileRunContextSelectorProps) {
++  const activeEnvironment = useMemo(
++    () => availableEnvironments?.find((env) => env.environmentId === environmentId) ?? null,
++    [availableEnvironments, environmentId],
++  );
++  const environmentOptions =
++    availableEnvironments ?? (activeEnvironment ? [activeEnvironment] : []);
++
++  function choiceClass(selected: boolean) {
++    return cn(
++      "flex min-h-12 w-full items-center gap-3 rounded-xl px-3 text-left text-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring",
++      selected ? "bg-accent/70 text-foreground" : "text-muted-foreground active:bg-accent/55",
++      "disabled:pointer-events-none disabled:opacity-55",
++    );
++  }
++
++  return (
++    <div className="space-y-5">
++      {showEnvironmentIndicator && environmentOptions.length > 0 ? (
++        <section aria-labelledby="phone-run-on-label">
++          <h3
++            id="phone-run-on-label"
++            className="mb-1 px-3 text-[11px] font-semibold tracking-wide text-muted-foreground/70 uppercase"
++          >
++            Run on
++          </h3>
++          <div className="rounded-2xl border border-border/60 bg-background/35 p-1">
++            {environmentOptions.map((env) => {
++              const Icon = env.isPrimary ? MonitorIcon : CloudIcon;
++              const selected = env.environmentId === environmentId;
++              return (
++                <button
++                  key={env.environmentId}
++                  type="button"
++                  aria-pressed={selected}
++                  className={choiceClass(selected)}
++                  disabled={envLocked || !onEnvironmentChange}
++                  onClick={() => onEnvironmentChange?.(env.environmentId)}
++                >
++                  <Icon className="size-4 shrink-0" />
++                  <span className="min-w-0 flex-1 truncate font-medium">{env.label}</span>
++                  {selected ? <CheckIcon className="size-4 shrink-0 text-primary" /> : null}
++                </button>
++              );
++            })}
++          </div>
++        </section>
++      ) : null}
++
++      <section aria-labelledby="phone-workspace-label">
++        <h3
++          id="phone-workspace-label"
++          className="mb-1 px-3 text-[11px] font-semibold tracking-wide text-muted-foreground/70 uppercase"
++        >
++          Workspace
++        </h3>
++        <div className="rounded-2xl border border-border/60 bg-background/35 p-1">
++          <button
++            type="button"
++            aria-pressed={effectiveEnvMode === "local"}
++            className={choiceClass(effectiveEnvMode === "local")}
++            disabled={envModeLocked}
++            onClick={() => onEnvModeChange("local")}
++          >
++            {activeWorktreePath ? (
++              <FolderGitIcon className="size-4 shrink-0" />
++            ) : (
++              <FolderIcon className="size-4 shrink-0" />
++            )}
++            <span className="min-w-0 flex-1 truncate font-medium">
++              {resolveCurrentWorkspaceLabel(activeWorktreePath)}
++            </span>
++            {effectiveEnvMode === "local" ? (
++              <CheckIcon className="size-4 shrink-0 text-primary" />
++            ) : null}
++          </button>
++          <button
++            type="button"
++            aria-pressed={effectiveEnvMode === "worktree"}
++            className={choiceClass(effectiveEnvMode === "worktree")}
++            disabled={envModeLocked}
++            onClick={() => onEnvModeChange("worktree")}
++          >
++            <FolderGit2Icon className="size-4 shrink-0" />
++            <span className="min-w-0 flex-1 truncate font-medium">
++              {resolveEnvModeLabel("worktree")}
++            </span>
++            {effectiveEnvMode === "worktree" ? (
++              <CheckIcon className="size-4 shrink-0 text-primary" />
++            ) : null}
++          </button>
++        </div>
++      </section>
++    </div>
++  );
++});
++
+ const MobileRunContextSelector = memo(function MobileRunContextSelector({
+   envLocked,
+   envModeLocked,
+@@ -244,12 +353,13 @@ export const BranchToolbar = memo(function BranchToolbar({
+     canPickEnvironment: showEnvironmentPicker,
+   });
+   const isMobile = useIsMobile();
++  const isPhone = useIsPhone();
+ 
+   if (!hasActiveThread || !activeProject) return null;
+ 
+   return (
+     <div className="mx-auto flex w-full max-w-3xl items-center gap-2 px-2.5 pb-3 pt-1 sm:px-3">
+-      {isMobile ? (
++      {isPhone ? null : isMobile ? (
+         <MobileRunContextSelector
+           envLocked={envLocked}
+           envModeLocked={envModeLocked}
+@@ -297,6 +407,23 @@ export const BranchToolbar = memo(function BranchToolbar({
+         onStartFromOriginChange={onStartFromOriginChange}
+         {...(onCheckoutPullRequestRequest ? { onCheckoutPullRequestRequest } : {})}
+         {...(onComposerFocusRequest ? { onComposerFocusRequest } : {})}
++        presentation={isPhone ? "phone" : "default"}
++        phoneContextContent={
++          isPhone ? (
++            <PhoneRunContextPanel
++              envLocked={envLocked}
++              envModeLocked={envModeLocked}
++              environmentId={environmentId}
++              availableEnvironments={availableEnvironments}
++              showEnvironmentPicker={showEnvironmentPicker}
++              showEnvironmentIndicator={showEnvironmentIndicator}
++              onEnvironmentChange={onEnvironmentChange}
++              effectiveEnvMode={effectiveEnvMode}
++              activeWorktreePath={activeWorktreePath}
++              onEnvModeChange={onEnvModeChange}
++            />
++          ) : undefined
++        }
+       />
+     </div>
+   );
+diff --git a/apps/web/src/components/BranchToolbarBranchSelector.tsx b/apps/web/src/components/BranchToolbarBranchSelector.tsx
+index 67ae3a818..687f9f34a 100644
+--- a/apps/web/src/components/BranchToolbarBranchSelector.tsx
++++ b/apps/web/src/components/BranchToolbarBranchSelector.tsx
+@@ -5,8 +5,19 @@ import {
+ } from "@t3tools/client-runtime/state/runtime";
+ import type { EnvironmentId, VcsRef, ThreadId } from "@t3tools/contracts";
+ import { LegendList, type LegendListRef } from "@legendapp/list/react";
+-import { ChevronDownIcon, GitBranchIcon, RefreshCwIcon, SearchIcon } from "lucide-react";
+ import {
++  ArrowLeftIcon,
++  CheckIcon,
++  ChevronDownIcon,
++  ChevronRightIcon,
++  EllipsisIcon,
++  ExternalLinkIcon,
++  GitBranchIcon,
++  RefreshCwIcon,
++  SearchIcon,
++} from "lucide-react";
++import {
++  type ReactNode,
+   useCallback,
+   useDeferredValue,
+   useEffect,
+@@ -44,6 +55,15 @@ import {
+   resolveThreadPr,
+ } from "./ThreadStatusIndicators";
+ import { Button } from "./ui/button";
++import { Input } from "./ui/input";
++import {
++  Sheet,
++  SheetDescription,
++  SheetHeader,
++  SheetPanel,
++  SheetPopup,
++  SheetTitle,
++} from "./ui/sheet";
+ import { Switch } from "./ui/switch";
+ import {
+   Combobox,
+@@ -71,6 +91,8 @@ interface BranchToolbarBranchSelectorProps {
+   onStartFromOriginChange: (startFromOrigin: boolean) => void;
+   onCheckoutPullRequestRequest?: (reference: string) => void;
+   onComposerFocusRequest?: () => void;
++  presentation?: "default" | "phone";
++  phoneContextContent?: ReactNode;
+ }
+ 
+ function toBranchActionErrorMessage(error: unknown): string {
+@@ -105,6 +127,8 @@ export function BranchToolbarBranchSelector({
+   onStartFromOriginChange,
+   onCheckoutPullRequestRequest,
+   onComposerFocusRequest,
++  presentation = "default",
++  phoneContextContent,
+ }: BranchToolbarBranchSelectorProps) {
+   const startFromOriginSwitchId = useId();
+   const stopThreadSession = useAtomCommand(threadEnvironment.stopSession, "thread session stop");
+@@ -215,6 +239,8 @@ export function BranchToolbarBranchSelector({
+   // Git ref queries
+   // ---------------------------------------------------------------------------
+   const [isBranchMenuOpen, setIsBranchMenuOpen] = useState(false);
++  const [isPhoneContextOpen, setIsPhoneContextOpen] = useState(false);
++  const returnToPhoneContextRef = useRef(false);
+   const [branchQuery, setBranchQuery] = useState("");
+   const deferredBranchQuery = useDeferredValue(branchQuery);
+ 
+@@ -325,12 +351,18 @@ export function BranchToolbarBranchSelector({
+     });
+   };
+ 
++  const dismissBranchPicker = () => {
++    returnToPhoneContextRef.current = false;
++    setIsBranchMenuOpen(false);
++    setBranchQuery("");
++  };
++
+   const selectBranch = (refName: VcsRef) => {
+     if (!branchCwd || !activeProjectCwd || isBranchActionPending) return;
+ 
+     if (isSelectingWorktreeBase) {
+       setThreadBranch(refName.name, null);
+-      setIsBranchMenuOpen(false);
++      dismissBranchPicker();
+       onComposerFocusRequest?.();
+       return;
+     }
+@@ -343,7 +375,7 @@ export function BranchToolbarBranchSelector({
+ 
+     if (selectionTarget.reuseExistingWorktree) {
+       setThreadBranch(refName.name, selectionTarget.nextWorktreePath);
+-      setIsBranchMenuOpen(false);
++      dismissBranchPicker();
+       onComposerFocusRequest?.();
+       return;
+     }
+@@ -352,7 +384,7 @@ export function BranchToolbarBranchSelector({
+       ? deriveLocalBranchNameFromRemoteRef(refName.name)
+       : refName.name;
+ 
+-    setIsBranchMenuOpen(false);
++    dismissBranchPicker();
+     onComposerFocusRequest?.();
+ 
+     runBranchAction(async () => {
+@@ -390,7 +422,7 @@ export function BranchToolbarBranchSelector({
+     const name = rawName.trim();
+     if (!branchCwd || !name || isBranchActionPending) return;
+ 
+-    setIsBranchMenuOpen(false);
++    dismissBranchPicker();
+     onComposerFocusRequest?.();
+ 
+     runBranchAction(async () => {
+@@ -457,13 +489,23 @@ export function BranchToolbarBranchSelector({
+       setIsBranchMenuOpen(open);
+       if (!open) {
+         setBranchQuery("");
++        if (presentation === "phone" && returnToPhoneContextRef.current) {
++          returnToPhoneContextRef.current = false;
++          setIsPhoneContextOpen(true);
++        }
+         return;
+       }
+       branchRefState.refresh();
+     },
+-    [branchRefState.refresh],
++    [branchRefState.refresh, presentation],
+   );
+ 
++  const openPhoneBranchPicker = (returnToContext: boolean) => {
++    returnToPhoneContextRef.current = returnToContext;
++    setIsPhoneContextOpen(false);
++    handleOpenChange(true);
++  };
++
+   const branchListScrollElementRef = useRef<HTMLElement | null>(null);
+   const [showTopBranchScrollFade, setShowTopBranchScrollFade] = useState(false);
+   const [showBottomBranchScrollFade, setShowBottomBranchScrollFade] = useState(false);
+@@ -569,8 +611,7 @@ export function BranchToolbarBranchSelector({
+             if (!prReference || !onCheckoutPullRequestRequest) {
+               return;
+             }
+-            setIsBranchMenuOpen(false);
+-            setBranchQuery("");
++            dismissBranchPicker();
+             onComposerFocusRequest?.();
+             onCheckoutPullRequestRequest(prReference);
+           }}
+@@ -633,6 +674,295 @@ export function BranchToolbarBranchSelector({
+     );
+   }
+ 
++  function renderPhonePickerItem(itemValue: string) {
++    if (checkoutPullRequestItemValue && itemValue === checkoutPullRequestItemValue) {
++      return (
++        <button
++          key={itemValue}
++          type="button"
++          className="flex min-h-13 w-full items-center gap-3 rounded-xl px-3 text-left outline-none active:bg-accent/70 focus-visible:ring-2 focus-visible:ring-ring"
++          onClick={() => {
++            if (!prReference || !onCheckoutPullRequestRequest) return;
++            dismissBranchPicker();
++            onComposerFocusRequest?.();
++            onCheckoutPullRequestRequest(prReference);
++          }}
++        >
++          <SourceControlIcon className="size-4 shrink-0 text-muted-foreground" />
++          <span className="flex min-w-0 flex-1 flex-col">
++            <span className="truncate text-sm font-medium">
++              Checkout {sourceControlPresentation.terminology.singular}
++            </span>
++            <span className="truncate text-xs text-muted-foreground">{prReference}</span>
++          </span>
++          <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground/55" />
++        </button>
++      );
++    }
++
++    if (createBranchItemValue && itemValue === createBranchItemValue) {
++      return (
++        <button
++          key={itemValue}
++          type="button"
++          className="flex min-h-13 w-full items-center gap-3 rounded-xl px-3 text-left outline-none active:bg-accent/70 focus-visible:ring-2 focus-visible:ring-ring"
++          onClick={() => createRef(trimmedBranchQuery)}
++        >
++          <GitBranchIcon className="size-4 shrink-0 text-muted-foreground" />
++          <span className="min-w-0 flex-1 truncate text-sm font-medium">
++            Create new ref &quot;{trimmedBranchQuery}&quot;
++          </span>
++          <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground/55" />
++        </button>
++      );
++    }
++
++    const refName = branchByName.get(itemValue);
++    if (!refName) return null;
++
++    const hasSecondaryWorktree =
++      refName.worktreePath && activeProjectCwd && refName.worktreePath !== activeProjectCwd;
++    const badge = refName.current
++      ? "current"
++      : hasSecondaryWorktree
++        ? "worktree"
++        : refName.isRemote
++          ? "remote"
++          : refName.isDefault
++            ? "default"
++            : null;
++    const selected = itemValue === resolvedActiveBranch;
++
++    return (
++      <button
++        key={itemValue}
++        type="button"
++        aria-pressed={selected}
++        className={cn(
++          "flex min-h-12 w-full items-center gap-3 rounded-xl px-3 text-left outline-none active:bg-accent/70 focus-visible:ring-2 focus-visible:ring-ring",
++          selected && "bg-accent/55",
++        )}
++        onClick={() => selectBranch(refName)}
++      >
++        <GitBranchIcon className="size-4 shrink-0 text-muted-foreground" />
++        <span className="min-w-0 flex-1 truncate text-sm font-medium">{itemValue}</span>
++        {badge ? (
++          <span className="shrink-0 text-[10px] text-muted-foreground/55">{badge}</span>
++        ) : null}
++        {selected ? <CheckIcon className="size-4 shrink-0 text-primary" /> : null}
++      </button>
++    );
++  }
++
++  if (presentation === "phone") {
++    return (
++      <>
++        <div className={cn("flex min-w-0 items-center gap-1.5", className)}>
++          <button
++            type="button"
++            aria-label={`Change branch. Current branch: ${triggerLabel}`}
++            className="flex min-w-0 flex-1 items-center justify-end gap-1.5 rounded-lg px-2 py-1 text-sm text-muted-foreground outline-none active:bg-accent/60 focus-visible:ring-2 focus-visible:ring-ring"
++            disabled={isInitialBranchesLoadPending || isBranchActionPending}
++            onClick={() => openPhoneBranchPicker(false)}
++          >
++            <GitBranchIcon className="size-3.5 shrink-0 opacity-70" />
++            <span className="min-w-0 truncate font-medium">{triggerLabel}</span>
++            {branchPr && branchPrStatus ? (
++              <span
++                className={cn(
++                  "inline-flex shrink-0 items-center gap-0.5 text-[11px] font-medium tabular-nums",
++                  branchPrStatus.colorClass,
++                )}
++              >
++                <ChangeRequestStatusIcon className="size-3" />
++                <span>#{branchPr.number}</span>
++              </span>
++            ) : null}
++          </button>
++          <Button
++            variant="ghost"
++            size="icon-sm"
++            aria-label="Open work context"
++            className="rounded-full text-muted-foreground"
++            onClick={() => setIsPhoneContextOpen(true)}
++          >
++            <EllipsisIcon className="size-4.5" />
++          </Button>
++        </div>
++
++        <Sheet open={isPhoneContextOpen} onOpenChange={setIsPhoneContextOpen}>
++          <SheetPopup
++            side="bottom"
++            showCloseButton={false}
++            className="max-h-[min(82dvh,42rem)] rounded-t-3xl border-x border-border/60 pb-[env(safe-area-inset-bottom)]"
++          >
++            <div className="mx-auto mt-2 h-1 w-9 shrink-0 rounded-full bg-muted-foreground/25" />
++            <SheetHeader className="gap-1 px-5 pt-4 pb-3">
++              <SheetTitle className="text-lg">Work context</SheetTitle>
++              <SheetDescription>
++                Choose where this thread runs and what it checks out.
++              </SheetDescription>
++            </SheetHeader>
++            <SheetPanel className="space-y-5 px-3 pt-1 pb-5">
++              {phoneContextContent}
++              <section aria-labelledby="phone-source-control-label">
++                <h3
++                  id="phone-source-control-label"
++                  className="mb-1 px-3 text-[11px] font-semibold tracking-wide text-muted-foreground/70 uppercase"
++                >
++                  Source control
++                </h3>
++                <div className="rounded-2xl border border-border/60 bg-background/35 p-1">
++                  <button
++                    type="button"
++                    aria-label="Change branch or ref"
++                    className="flex min-h-12 w-full items-center gap-3 rounded-xl px-3 text-left outline-none active:bg-accent/70 focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-55"
++                    disabled={isInitialBranchesLoadPending || isBranchActionPending}
++                    onClick={() => openPhoneBranchPicker(true)}
++                  >
++                    <GitBranchIcon className="size-4 shrink-0" />
++                    <span className="min-w-0 flex-1">
++                      <span className="block text-xs text-muted-foreground">Branch / ref</span>
++                      <span className="block truncate text-sm font-medium">{triggerLabel}</span>
++                    </span>
++                    <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground/55" />
++                  </button>
++                  {branchPr && branchPrStatus ? (
++                    <button
++                      type="button"
++                      aria-label={branchPrTooltip}
++                      className="flex min-h-12 w-full items-center gap-3 rounded-xl px-3 text-left outline-none active:bg-accent/70 focus-visible:ring-2 focus-visible:ring-ring"
++                      onClick={(event) => {
++                        setIsPhoneContextOpen(false);
++                        openPrLink(event, branchPrStatus.url);
++                      }}
++                    >
++                      <ChangeRequestStatusIcon
++                        className={cn("size-4 shrink-0", branchPrStatus.colorClass)}
++                      />
++                      <span className="min-w-0 flex-1">
++                        <span className="block text-xs text-muted-foreground">
++                          {sourceControlPresentation.terminology.singular}
++                        </span>
++                        <span className="block truncate text-sm font-medium">
++                          #{branchPr.number} · {branchPr.state}
++                        </span>
++                      </span>
++                      <ExternalLinkIcon className="size-4 shrink-0 text-muted-foreground/55" />
++                    </button>
++                  ) : null}
++                </div>
++              </section>
++            </SheetPanel>
++          </SheetPopup>
++        </Sheet>
++
++        <Sheet open={isBranchMenuOpen} onOpenChange={handleOpenChange}>
++          <SheetPopup
++            side="bottom"
++            showCloseButton={false}
++            className="h-[min(84dvh,44rem)] rounded-t-3xl border-x border-border/60 pb-[env(safe-area-inset-bottom)]"
++          >
++            <div className="mx-auto mt-2 h-1 w-9 shrink-0 rounded-full bg-muted-foreground/25" />
++            <SheetHeader className="grid grid-cols-[2.5rem_minmax(0,1fr)_2.5rem] items-center gap-1 px-3 pt-3 pb-2 text-center">
++              <Button
++                variant="ghost"
++                size="icon-sm"
++                aria-label="Back"
++                className="rounded-full"
++                onClick={() => handleOpenChange(false)}
++              >
++                <ArrowLeftIcon />
++              </Button>
++              <div className="min-w-0">
++                <SheetTitle className="truncate text-base">Branch / ref</SheetTitle>
++                <SheetDescription className="truncate text-xs">{triggerLabel}</SheetDescription>
++              </div>
++              <span aria-hidden="true" />
++            </SheetHeader>
++            <div className="shrink-0 px-4 pb-3">
++              <div className="relative">
++                <SearchIcon className="pointer-events-none absolute top-1/2 left-3 z-10 size-4 -translate-y-1/2 text-muted-foreground/55" />
++                <Input
++                  nativeInput
++                  autoFocus
++                  type="search"
++                  aria-label="Search refs"
++                  className="rounded-xl [&_input]:ps-9"
++                  placeholder="Search refs..."
++                  value={branchQuery}
++                  onChange={(event) => setBranchQuery(event.target.value)}
++                />
++              </div>
++            </div>
++            <div className="relative min-h-0 flex-1 overflow-hidden px-2">
++              {filteredBranchPickerItems.length > 0 ? (
++                <LegendList<string>
++                  ref={branchListRef}
++                  data={filteredBranchPickerItems}
++                  keyExtractor={(item) => item}
++                  getItemType={(item) =>
++                    item === checkoutPullRequestItemValue
++                      ? "checkout-pull-request"
++                      : item === createBranchItemValue
++                        ? "create-branch"
++                        : "branch"
++                  }
++                  renderItem={({ item }) => renderPhonePickerItem(item)}
++                  estimatedItemSize={48}
++                  drawDistance={480}
++                  recycleItems={false}
++                  onEndReached={() => {
++                    if (hasNextPage && !isFetchingNextPage) fetchNextBranchPage();
++                  }}
++                  onLayout={() => {
++                    updateBranchListScrollFades();
++                    maybeFetchNextBranchPage();
++                  }}
++                  onScroll={() => {
++                    updateBranchListScrollFades();
++                    maybeFetchNextBranchPage();
++                  }}
++                  className={cn(
++                    "size-full overflow-x-hidden overscroll-y-contain pb-2 [--fade-size:1.5rem]",
++                    showTopBranchScrollFade && "mask-t-from-[calc(100%-var(--fade-size))]",
++                    showBottomBranchScrollFade && "mask-b-from-[calc(100%-var(--fade-size))]",
++                  )}
++                />
++              ) : (
++                <div className="px-4 py-10 text-center text-sm text-muted-foreground">
++                  No refs found.
++                </div>
++              )}
++            </div>
++            {isSelectingWorktreeBase ? (
++              <label
++                htmlFor={`${startFromOriginSwitchId}-phone`}
++                className="flex shrink-0 items-center justify-between gap-3 border-t border-border/60 px-5 py-3 text-sm"
++              >
++                <span className="flex min-w-0 items-center gap-2 font-medium text-muted-foreground">
++                  <RefreshCwIcon className="size-4 shrink-0 opacity-70" />
++                  <span className="truncate">Start from origin</span>
++                </span>
++                <Switch
++                  id={`${startFromOriginSwitchId}-phone`}
++                  checked={startFromOrigin}
++                  aria-label="Start worktree from origin"
++                  onCheckedChange={(checked) => onStartFromOriginChange(Boolean(checked))}
++                />
++              </label>
++            ) : null}
++            {branchStatusText ? (
++              <div className="shrink-0 border-t border-border/60 px-5 py-2 text-center text-xs text-muted-foreground">
++                {branchStatusText}
++              </div>
++            ) : null}
++          </SheetPopup>
++        </Sheet>
++      </>
++    );
++  }
++
+   return (
+     <Combobox
+       items={branchPickerItems}
+diff --git a/apps/web/src/hooks/useMediaQuery.ts b/apps/web/src/hooks/useMediaQuery.ts
+index e7e007b0b..4a6d3075e 100644
+--- a/apps/web/src/hooks/useMediaQuery.ts
++++ b/apps/web/src/hooks/useMediaQuery.ts
+@@ -85,3 +85,7 @@ export function useMediaQuery(query: BreakpointQuery | MediaQueryInput | (string
+ export function useIsMobile(): boolean {
+   return useMediaQuery("max-md");
+ }
++
++export function useIsPhone(): boolean {
++  return useMediaQuery({ max: "sm", pointer: "coarse" });
++}

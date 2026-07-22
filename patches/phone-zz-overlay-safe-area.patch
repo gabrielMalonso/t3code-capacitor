@@ -1,0 +1,97 @@
+From aa134b150c572458afd937ba2db09631e361efde Mon Sep 17 00:00:00 2001
+From: patch <patch@local>
+Date: Wed, 22 Jul 2026 18:23:20 -0300
+Subject: [PATCH] fix(phone): keep overlays inside safe areas
+
+---
+ apps/web/src/components/ui/alert-dialog.tsx | 2 +-
+ apps/web/src/components/ui/dialog.tsx       | 2 +-
+ apps/web/src/components/ui/phone-sheet.tsx  | 8 +++++---
+ apps/web/src/components/ui/sheet.tsx        | 3 ++-
+ apps/web/src/components/ui/toast.tsx        | 4 ++--
+ 5 files changed, 11 insertions(+), 8 deletions(-)
+
+diff --git a/apps/web/src/components/ui/alert-dialog.tsx b/apps/web/src/components/ui/alert-dialog.tsx
+index c92f1b808..b73679d5a 100644
+--- a/apps/web/src/components/ui/alert-dialog.tsx
++++ b/apps/web/src/components/ui/alert-dialog.tsx
+@@ -52,7 +52,7 @@ function AlertDialogPopup({
+     <AlertDialogPortal>
+       <AlertDialogBackdrop />
+       <AlertDialogViewport
+-        className={cn(bottomStickOnMobile && "max-sm:grid-rows-[1fr_auto] max-sm:p-0 max-sm:pt-12")}
++        className={cn(bottomStickOnMobile && "max-sm:grid-rows-[1fr_auto] max-sm:p-0 max-sm:pt-[calc(var(--safe-area-inset-top,env(safe-area-inset-top,0px))+0.5rem)] max-sm:pb-[var(--safe-area-inset-bottom,env(safe-area-inset-bottom,0px))]")}
+       >
+         <AlertDialogPrimitive.Popup
+           className={cn(
+diff --git a/apps/web/src/components/ui/dialog.tsx b/apps/web/src/components/ui/dialog.tsx
+index 3e1b3d69c..2ba8556b0 100644
+--- a/apps/web/src/components/ui/dialog.tsx
++++ b/apps/web/src/components/ui/dialog.tsx
+@@ -61,7 +61,7 @@ function DialogPopup({
+     <DialogPortal>
+       <DialogBackdrop />
+       <DialogViewport
+-        className={cn(bottomStickOnMobile && "max-sm:grid-rows-[1fr_auto] max-sm:p-0 max-sm:pt-12")}
++        className={cn(bottomStickOnMobile && "max-sm:grid-rows-[1fr_auto] max-sm:p-0 max-sm:pt-[calc(var(--safe-area-inset-top,env(safe-area-inset-top,0px))+0.5rem)] max-sm:pb-[var(--safe-area-inset-bottom,env(safe-area-inset-bottom,0px))]")}
+       >
+         <DialogPrimitive.Popup
+           className={cn(
+diff --git a/apps/web/src/components/ui/phone-sheet.tsx b/apps/web/src/components/ui/phone-sheet.tsx
+index f59f13a72..89885c907 100644
+--- a/apps/web/src/components/ui/phone-sheet.tsx
++++ b/apps/web/src/components/ui/phone-sheet.tsx
+@@ -89,7 +89,9 @@ export function PhoneSheetPopup({
+     if (Math.abs(deltaY) > 5) suppressClickRef.current = true;
+ 
+     if (dragState.snap === "medium" && deltaY < 0 && allowMediumSnap) {
+-      setDragHeight(Math.min(window.innerHeight * 0.92, dragState.startHeight + Math.abs(deltaY)));
++      const viewport = popupRef.current?.parentElement;
++      const maxHeight = viewport?.clientHeight || Math.round(window.innerHeight * 0.92);
++      setDragHeight(Math.min(maxHeight, dragState.startHeight + Math.abs(deltaY)));
+       setDragOffset(0);
+       return;
+     }
+@@ -130,8 +132,8 @@ export function PhoneSheetPopup({
+       style={style}
+       data-phone-sheet-snap={snap}
+       className={cn(
+-        "max-h-[92dvh] rounded-t-3xl border-x border-border/60 pb-[env(safe-area-inset-bottom)] transition-[height,opacity,translate,transform] duration-200 ease-out",
+-        snap === "full" ? "h-[92dvh]" : "h-[min(60dvh,34rem)]",
++        "max-h-full min-h-0 rounded-t-3xl border-x border-border/60 pb-[var(--safe-area-inset-bottom,env(safe-area-inset-bottom,0px))] transition-[height,opacity,translate,transform] duration-200 ease-out",
++        snap === "full" ? "h-full" : "h-[min(60dvh,34rem)] max-h-full",
+         isDragging && "transition-none",
+         className,
+       )}
+diff --git a/apps/web/src/components/ui/sheet.tsx b/apps/web/src/components/ui/sheet.tsx
+index 9d0436b66..bcaa728a8 100644
+--- a/apps/web/src/components/ui/sheet.tsx
++++ b/apps/web/src/components/ui/sheet.tsx
+@@ -44,7 +44,8 @@ function SheetViewport({
+     <SheetPrimitive.Viewport
+       className={cn(
+         "fixed inset-0 z-50 grid",
+-        side === "bottom" && "grid grid-rows-[1fr_auto] pt-12",
++        side === "bottom" &&
++          "flex flex-col justify-end pt-[calc(var(--safe-area-inset-top,env(safe-area-inset-top,0px))+0.5rem)]",
+         side === "top" && "grid grid-rows-[auto_1fr] pb-12",
+         side === "left" && "flex justify-start",
+         side === "right" && "flex justify-end",
+diff --git a/apps/web/src/components/ui/toast.tsx b/apps/web/src/components/ui/toast.tsx
+index d48cda453..6693a8dfe 100644
+--- a/apps/web/src/components/ui/toast.tsx
++++ b/apps/web/src/components/ui/toast.tsx
+@@ -561,8 +561,8 @@ function Toasts({ position }: { position: ToastPosition }) {
+         className={cn(
+           "fixed z-100 mx-auto flex w-[calc(100%-var(--toast-inset)*2)] max-w-90 [--toast-header-offset:52px] [--toast-inset:--spacing(4)] sm:[--toast-inset:--spacing(8)]",
+           // Vertical positioning
+-          "data-[position*=top]:top-[calc(var(--toast-inset)+var(--toast-header-offset))]",
+-          "data-[position*=bottom]:bottom-(--toast-inset)",
++          "data-[position*=top]:top-[calc(var(--toast-inset)+var(--toast-header-offset)+var(--safe-area-inset-top,env(safe-area-inset-top,0px)))]",
++          "data-[position*=bottom]:bottom-[calc(var(--toast-inset)+var(--safe-area-inset-bottom,env(safe-area-inset-bottom,0px)))]",
+           // Horizontal positioning
+           "data-[position*=left]:left-(--toast-inset)",
+           "data-[position*=right]:right-(--toast-inset)",
+-- 
+2.51.0
+

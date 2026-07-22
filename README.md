@@ -5,12 +5,13 @@ An independent Android wrapper for [T3 Code](https://github.com/pingdotgg/t3code
 upstream T3 Code checkout, so the web application can continue moving quickly without overwriting
 the mobile wrapper.
 
-This repository contains only the wrapper and Android project. The generated T3 Code web bundle is
-copied into `www/` during a build and is not committed.
+This repository contains only the wrapper, Android project, and mobile patches. The generated T3
+Code web bundle is copied into `www/` during a build and is not committed. The T3 Code source
+checkout stays clean and can continue tracking upstream without wrapper commits or local changes.
 
 ## Android adaptations
 
-The wrapper makes a small set of runtime changes tailored to Android tablets:
+The wrapper makes a small set of changes tailored to Android phones and tablets:
 
 - applies the top, bottom, left, and right safe-area insets in portrait and landscape;
 - keeps the composer, sidebar, title bar, and settings controls clear of Android system bars;
@@ -18,11 +19,17 @@ The wrapper makes a small set of runtime changes tailored to Android tablets:
 - uses the official purple T3 Code Preview artwork as an adaptive Android launcher icon;
 - aligns the floating sidebar toggle below the status bar;
 - prevents the keyboard from opening automatically when a chat is opened or changed;
-- makes Enter insert a line break instead of sending, leaving submission to the send button.
+- makes Enter insert a line break instead of sending, leaving submission to the send button;
+- condenses the checkout, pull request, and branch controls into a phone-only work-context sheet;
+- keeps only Git and an overflow menu in the phone header, with terminal, side-panel, project-action,
+  and editor controls inside the overflow sheet;
+- gives phone sheets a drag handle, medium and full-height snap points, and swipe-down dismissal.
 
-The web client itself remains upstream T3 Code. The Android adjustments are injected by
-`MainActivity`, while `scripts/sync-web.mjs` builds the web client and adds Capacitor-compatible
-safe-area fallbacks to the generated bundle.
+Native Android adjustments are injected by `MainActivity`. Small web-client adaptations live as
+versioned files under `patches/`. During a build, `scripts/sync-web.mjs` clones the exact revision of
+the clean T3 Code checkout into a temporary directory, applies those patches, builds the web client,
+adds Capacitor-compatible safe-area fallbacks, and removes the temporary clone. The tablet layout is
+left unchanged by the phone-only toolbar patch.
 
 ## Requirements
 
@@ -38,19 +45,14 @@ By default, the build expects the T3 Code checkout in a sibling directory named 
 
 ## Configuration
 
-Set the primary server in `capacitor.config.json`:
+Set `T3CODE_PRIMARY_URL` when refreshing the web bundle. The URL is recorded in the build metadata
+and used when provisioning the app. A Tailscale Serve HTTPS endpoint works well because it keeps the
+server private to the tailnet.
 
-```json
-{
-  "server": {
-    "url": "https://your-t3-code-server.example.com"
-  }
-}
-```
-
-Use the same URL as `T3CODE_PRIMARY_URL` when refreshing the web bundle. A Tailscale Serve HTTPS
-endpoint works well because it gives the WebView a secure origin while keeping the server private
-to the tailnet.
+The Capacitor configuration intentionally has no `server.url`: the app loads its bundled frontend
+from the local Capacitor origin in T3 Code's hosted-client mode. Pairing registers the remote backend
+as a bearer-authenticated environment in the app's private IndexedDB storage. This allows the wrapper
+patches to take effect and preserves authentication across `adb install -r` updates.
 
 Pairing is performed independently inside the Android app. Pairing credentials remain in the
 application's private storage and are never written to this repository.
@@ -92,15 +94,19 @@ builds.
 
 ## Updating from T3 Code
 
-Update the separate T3 Code checkout, then rebuild this wrapper:
+Update the separate, clean T3 Code checkout, then rebuild this wrapper:
 
 ```sh
 git -C ../t3code pull --ff-only
 T3CODE_PRIMARY_URL=https://your-t3-code-server.example.com corepack pnpm build:android
 ```
 
-The wrapper modifications do not need to be reapplied after each upstream update. They live in this
-repository and run again whenever the web bundle is synchronized.
+The build refuses to run when the source checkout has local changes. Wrapper modifications are
+applied automatically inside a disposable clone and never touch that checkout.
+
+If an upstream update changes one of the patched areas, `git apply --check` stops the build before
+anything is generated. Recreate the affected patch against the new upstream revision, save it in
+`patches/`, return the T3 Code checkout to a clean state, and rebuild.
 
 ## License
 

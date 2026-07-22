@@ -1,0 +1,677 @@
+From 21186c34a10913ab76bb85c68960581f38f275c6 Mon Sep 17 00:00:00 2001
+From: gabrielMalonso <gabriel_alonso_@outlook.com>
+Date: Wed, 22 Jul 2026 16:49:50 -0300
+Subject: [PATCH] feat: add phone header and draggable drawers
+
+---
+ .../BranchToolbarBranchSelector.tsx           |  35 ++-
+ apps/web/src/components/ChatView.tsx          |  12 +-
+ apps/web/src/components/chat/ChatHeader.tsx   | 200 +++++++++++++++---
+ .../components/ui/phone-sheet.logic.test.ts   |  60 ++++++
+ .../src/components/ui/phone-sheet.logic.ts    |  26 +++
+ apps/web/src/components/ui/phone-sheet.tsx    | 160 ++++++++++++++
+ 6 files changed, 432 insertions(+), 61 deletions(-)
+ create mode 100644 apps/web/src/components/ui/phone-sheet.logic.test.ts
+ create mode 100644 apps/web/src/components/ui/phone-sheet.logic.ts
+ create mode 100644 apps/web/src/components/ui/phone-sheet.tsx
+
+diff --git a/apps/web/src/components/BranchToolbarBranchSelector.tsx b/apps/web/src/components/BranchToolbarBranchSelector.tsx
+index 687f9f34a..9b1e8ddf4 100644
+--- a/apps/web/src/components/BranchToolbarBranchSelector.tsx
++++ b/apps/web/src/components/BranchToolbarBranchSelector.tsx
+@@ -56,14 +56,8 @@ import {
+ } from "./ThreadStatusIndicators";
+ import { Button } from "./ui/button";
+ import { Input } from "./ui/input";
+-import {
+-  Sheet,
+-  SheetDescription,
+-  SheetHeader,
+-  SheetPanel,
+-  SheetPopup,
+-  SheetTitle,
+-} from "./ui/sheet";
++import { Sheet, SheetDescription, SheetHeader, SheetPanel, SheetTitle } from "./ui/sheet";
++import { PhoneSheetPopup } from "./ui/phone-sheet";
+ import { Switch } from "./ui/switch";
+ import {
+   Combobox,
+@@ -791,13 +785,8 @@ export function BranchToolbarBranchSelector({
+         </div>
+ 
+         <Sheet open={isPhoneContextOpen} onOpenChange={setIsPhoneContextOpen}>
+-          <SheetPopup
+-            side="bottom"
+-            showCloseButton={false}
+-            className="max-h-[min(82dvh,42rem)] rounded-t-3xl border-x border-border/60 pb-[env(safe-area-inset-bottom)]"
+-          >
+-            <div className="mx-auto mt-2 h-1 w-9 shrink-0 rounded-full bg-muted-foreground/25" />
+-            <SheetHeader className="gap-1 px-5 pt-4 pb-3">
++          <PhoneSheetPopup open={isPhoneContextOpen} onDismiss={() => setIsPhoneContextOpen(false)}>
++            <SheetHeader className="gap-1 px-5 pt-1 pb-3">
+               <SheetTitle className="text-lg">Work context</SheetTitle>
+               <SheetDescription>
+                 Choose where this thread runs and what it checks out.
+@@ -854,17 +843,17 @@ export function BranchToolbarBranchSelector({
+                 </div>
+               </section>
+             </SheetPanel>
+-          </SheetPopup>
++          </PhoneSheetPopup>
+         </Sheet>
+ 
+         <Sheet open={isBranchMenuOpen} onOpenChange={handleOpenChange}>
+-          <SheetPopup
+-            side="bottom"
+-            showCloseButton={false}
+-            className="h-[min(84dvh,44rem)] rounded-t-3xl border-x border-border/60 pb-[env(safe-area-inset-bottom)]"
++          <PhoneSheetPopup
++            open={isBranchMenuOpen}
++            onDismiss={() => handleOpenChange(false)}
++            initialSnap="full"
++            allowMediumSnap={false}
+           >
+-            <div className="mx-auto mt-2 h-1 w-9 shrink-0 rounded-full bg-muted-foreground/25" />
+-            <SheetHeader className="grid grid-cols-[2.5rem_minmax(0,1fr)_2.5rem] items-center gap-1 px-3 pt-3 pb-2 text-center">
++            <SheetHeader className="grid grid-cols-[2.5rem_minmax(0,1fr)_2.5rem] items-center gap-1 px-3 pt-0 pb-2 text-center">
+               <Button
+                 variant="ghost"
+                 size="icon-sm"
+@@ -957,7 +946,7 @@ export function BranchToolbarBranchSelector({
+                 {branchStatusText}
+               </div>
+             ) : null}
+-          </SheetPopup>
++          </PhoneSheetPopup>
+         </Sheet>
+       </>
+     );
+diff --git a/apps/web/src/components/ChatView.tsx b/apps/web/src/components/ChatView.tsx
+index ad303f607..8579fad54 100644
+--- a/apps/web/src/components/ChatView.tsx
++++ b/apps/web/src/components/ChatView.tsx
+@@ -114,7 +114,7 @@ import { useTheme } from "../hooks/useTheme";
+ import { useTurnDiffSummaries } from "../hooks/useTurnDiffSummaries";
+ import { isCommandPaletteOpen } from "../commandPaletteBus";
+ import { buildTemporaryWorktreeBranchName } from "@t3tools/shared/git";
+-import { useMediaQuery } from "../hooks/useMediaQuery";
++import { useIsPhone, useMediaQuery } from "../hooks/useMediaQuery";
+ import { RIGHT_PANEL_INLINE_LAYOUT_MEDIA_QUERY } from "../rightPanelLayout";
+ import {
+   selectActiveRightPanel,
+@@ -1222,6 +1222,7 @@ function ChatViewContent(props: ChatViewProps) {
+   const [pendingUserInputQuestionIndexByRequestId, setPendingUserInputQuestionIndexByRequestId] =
+     useState<Record<string, number>>({});
+   const shouldUsePlanSidebarSheet = useMediaQuery(RIGHT_PANEL_INLINE_LAYOUT_MEDIA_QUERY);
++  const isPhone = useIsPhone();
+   // Tracks whether the user explicitly dismissed the sidebar for the active turn.
+   const planSidebarDismissedForTurnRef = useRef<string | null>(null);
+   // When set, the thread-change reset effect will open the sidebar instead of closing it.
+@@ -5187,7 +5188,7 @@ function ChatViewContent(props: ChatViewProps) {
+ 
+   return (
+     <div className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden bg-background">
+-      {rightPanelOpen && !shouldUsePlanSidebarSheet ? panelLayoutControls : null}
++      {rightPanelOpen && !shouldUsePlanSidebarSheet && !isPhone ? panelLayoutControls : null}
+       <div
+         className={cn(
+           "flex min-h-0 min-w-0 flex-col overflow-x-hidden",
+@@ -5211,7 +5212,7 @@ function ChatViewContent(props: ChatViewProps) {
+             COLLAPSED_SIDEBAR_TITLEBAR_INSET_CLASS,
+           )}
+         >
+-          {!rightPanelOpen ? panelLayoutControls : null}
++          {!rightPanelOpen && !isPhone ? panelLayoutControls : null}
+           <ChatHeader
+             activeThreadEnvironmentId={activeThread.environmentId}
+             activeThreadId={activeThread.id}
+@@ -5226,8 +5227,13 @@ function ChatViewContent(props: ChatViewProps) {
+             }
+             keybindings={keybindings}
+             availableEditors={availableEditors}
++            terminalAvailable={activeProject !== null}
++            terminalOpen={terminalUiState.terminalOpen}
+             rightPanelOpen={rightPanelOpen}
++            rightPanelAvailable={activeProject !== null}
+             gitCwd={gitCwd}
++            onToggleTerminal={toggleTerminalVisibility}
++            onToggleRightPanel={toggleRightPanel}
+             onRunProjectScript={runProjectScript}
+             onAddProjectScript={saveProjectScript}
+             onUpdateProjectScript={updateProjectScript}
+diff --git a/apps/web/src/components/chat/ChatHeader.tsx b/apps/web/src/components/chat/ChatHeader.tsx
+index d39828752..9fe724708 100644
+--- a/apps/web/src/components/chat/ChatHeader.tsx
++++ b/apps/web/src/components/chat/ChatHeader.tsx
+@@ -6,7 +6,8 @@ import {
+   type ThreadId,
+ } from "@t3tools/contracts";
+ import { scopeThreadRef } from "@t3tools/client-runtime/environment";
+-import { memo } from "react";
++import { EllipsisIcon, PanelBottomIcon, PanelRightIcon } from "lucide-react";
++import { memo, useState } from "react";
+ import GitActionsControl from "../GitActionsControl";
+ import { type DraftId } from "~/composerDraftStore";
+ import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
+@@ -18,6 +19,17 @@ import { OpenInPicker } from "./OpenInPicker";
+ import { usePrimaryEnvironmentId } from "../../state/environments";
+ import { ProjectFavicon } from "../ProjectFavicon";
+ import { cn } from "~/lib/utils";
++import { useIsPhone } from "~/hooks/useMediaQuery";
++import { Button } from "../ui/button";
++import {
++  Sheet,
++  SheetDescription,
++  SheetHeader,
++  SheetPanel,
++  SheetTitle,
++  SheetTrigger,
++} from "../ui/sheet";
++import { PhoneSheetPopup } from "../ui/phone-sheet";
+ 
+ interface ChatHeaderProps {
+   activeThreadEnvironmentId: EnvironmentId;
+@@ -31,8 +43,13 @@ interface ChatHeaderProps {
+   preferredScriptId: string | null;
+   keybindings: ResolvedKeybindingsConfig;
+   availableEditors: ReadonlyArray<EditorId>;
++  terminalAvailable: boolean;
++  terminalOpen: boolean;
+   rightPanelOpen: boolean;
++  rightPanelAvailable: boolean;
+   gitCwd: string | null;
++  onToggleTerminal: () => void;
++  onToggleRightPanel: () => void;
+   onRunProjectScript: (script: ProjectScript) => void;
+   onAddProjectScript: (input: NewProjectScriptInput) => Promise<ProjectScriptActionResult>;
+   onUpdateProjectScript: (
+@@ -66,40 +83,59 @@ export const ChatHeader = memo(function ChatHeader({
+   preferredScriptId,
+   keybindings,
+   availableEditors,
++  terminalAvailable,
++  terminalOpen,
+   rightPanelOpen,
++  rightPanelAvailable,
+   gitCwd,
++  onToggleTerminal,
++  onToggleRightPanel,
+   onRunProjectScript,
+   onAddProjectScript,
+   onUpdateProjectScript,
+   onDeleteProjectScript,
+ }: ChatHeaderProps) {
+   const primaryEnvironmentId = usePrimaryEnvironmentId();
++  const isPhone = useIsPhone();
++  const [phoneActionsOpen, setPhoneActionsOpen] = useState(false);
+   const showOpenInPicker = shouldShowOpenInPicker({
+     activeProjectName,
+     activeThreadEnvironmentId,
+     primaryEnvironmentId,
+   });
+   return (
+-    <div className="@container/header-actions flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
++    <div
++      className={cn(
++        "@container/header-actions flex min-w-0 flex-1 items-center gap-2 sm:gap-3",
++        isPhone && "gap-1.5",
++      )}
++    >
+       <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden sm:gap-3">
+         {/* The project always leads the header: knowing which project a
+             thread lives in is priority zero, and the thread title alone
+             doesn't answer it. */}
+         {activeProjectName ? (
+-          <span className="inline-flex shrink-0 items-center gap-2">
++          <span
++            aria-label={isPhone ? activeProjectName : undefined}
++            className="inline-flex shrink-0 items-center gap-2"
++          >
+             <span className="inline-flex min-w-0 items-center gap-1.5">
+               <ProjectFavicon
+                 environmentId={activeThreadEnvironmentId}
+                 cwd={activeProjectCwd ?? ""}
+                 className="size-3.5"
+               />
+-              <span className="max-w-40 truncate text-sm font-medium text-muted-foreground">
+-                {activeProjectName}
+-              </span>
+-            </span>
+-            <span aria-hidden className="text-muted-foreground/40">
+-              /
++              {!isPhone ? (
++                <span className="max-w-40 truncate text-sm font-medium text-muted-foreground">
++                  {activeProjectName}
++                </span>
++              ) : null}
+             </span>
++            {!isPhone ? (
++              <span aria-hidden className="text-muted-foreground/40">
++                /
++              </span>
++            ) : null}
+           </span>
+         ) : null}
+         <Tooltip>
+@@ -120,34 +156,128 @@ export const ChatHeader = memo(function ChatHeader({
+         data-chat-header-actions
+         className={cn(
+           "flex shrink-0 items-center justify-end gap-2 @3xl/header-actions:gap-3",
+-          rightPanelOpen ? "pr-0" : "pr-16",
++          isPhone ? "gap-1" : rightPanelOpen ? "pr-0" : "pr-16",
+         )}
+       >
+-        {activeProjectScripts && (
+-          <ProjectScriptsControl
+-            scripts={activeProjectScripts}
+-            keybindings={keybindings}
+-            preferredScriptId={preferredScriptId}
+-            onRunScript={onRunProjectScript}
+-            onAddScript={onAddProjectScript}
+-            onUpdateScript={onUpdateProjectScript}
+-            onDeleteScript={onDeleteProjectScript}
+-          />
+-        )}
+-        {showOpenInPicker && (
+-          <OpenInPicker
+-            environmentId={activeThreadEnvironmentId}
+-            keybindings={keybindings}
+-            availableEditors={availableEditors}
+-            openInCwd={openInCwd}
+-          />
+-        )}
+-        {activeProjectName && (
+-          <GitActionsControl
+-            gitCwd={gitCwd}
+-            activeThreadRef={scopeThreadRef(activeThreadEnvironmentId, activeThreadId)}
+-            {...(draftId ? { draftId } : {})}
+-          />
++        {isPhone ? (
++          <>
++            {activeProjectName ? (
++              <GitActionsControl
++                gitCwd={gitCwd}
++                activeThreadRef={scopeThreadRef(activeThreadEnvironmentId, activeThreadId)}
++                {...(draftId ? { draftId } : {})}
++              />
++            ) : null}
++            <Sheet open={phoneActionsOpen} onOpenChange={setPhoneActionsOpen}>
++              <SheetTrigger
++                render={
++                  <Button
++                    variant="ghost"
++                    size="icon-sm"
++                    aria-label="Open chat tools"
++                    className="rounded-full"
++                  />
++                }
++              >
++                <EllipsisIcon className="size-4.5" />
++              </SheetTrigger>
++              <PhoneSheetPopup open={phoneActionsOpen} onDismiss={() => setPhoneActionsOpen(false)}>
++                <SheetHeader className="gap-1 px-5 pt-1 pb-3">
++                  <SheetTitle className="text-lg">Chat tools</SheetTitle>
++                  <SheetDescription>Panels, project actions, and external tools.</SheetDescription>
++                </SheetHeader>
++                <SheetPanel className="space-y-2 px-3 pt-1 pb-5">
++                  <button
++                    type="button"
++                    aria-pressed={terminalOpen}
++                    disabled={!terminalAvailable}
++                    className="flex min-h-13 w-full items-center gap-3 rounded-2xl border border-border/60 bg-background/35 px-4 text-left outline-none active:bg-accent/70 focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
++                    onClick={() => {
++                      setPhoneActionsOpen(false);
++                      onToggleTerminal();
++                    }}
++                  >
++                    <PanelBottomIcon className="size-4.5 shrink-0 text-muted-foreground" />
++                    <span className="min-w-0 flex-1 text-sm font-medium">Terminal</span>
++                    <span className="text-xs text-muted-foreground">
++                      {terminalOpen ? "Close" : "Open"}
++                    </span>
++                  </button>
++                  <button
++                    type="button"
++                    aria-pressed={rightPanelOpen}
++                    disabled={!rightPanelAvailable}
++                    className="flex min-h-13 w-full items-center gap-3 rounded-2xl border border-border/60 bg-background/35 px-4 text-left outline-none active:bg-accent/70 focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
++                    onClick={() => {
++                      setPhoneActionsOpen(false);
++                      onToggleRightPanel();
++                    }}
++                  >
++                    <PanelRightIcon className="size-4.5 shrink-0 text-muted-foreground" />
++                    <span className="min-w-0 flex-1 text-sm font-medium">Side panel</span>
++                    <span className="text-xs text-muted-foreground">
++                      {rightPanelOpen ? "Close" : "Open"}
++                    </span>
++                  </button>
++                  {activeProjectScripts ? (
++                    <div className="flex min-h-13 w-full items-center gap-3 rounded-2xl border border-border/60 bg-background/35 px-4">
++                      <span className="min-w-0 flex-1 text-sm font-medium">Project actions</span>
++                      <ProjectScriptsControl
++                        scripts={activeProjectScripts}
++                        keybindings={keybindings}
++                        preferredScriptId={preferredScriptId}
++                        onRunScript={onRunProjectScript}
++                        onAddScript={onAddProjectScript}
++                        onUpdateScript={onUpdateProjectScript}
++                        onDeleteScript={onDeleteProjectScript}
++                      />
++                    </div>
++                  ) : null}
++                  {showOpenInPicker ? (
++                    <div className="flex min-h-13 w-full items-center gap-3 rounded-2xl border border-border/60 bg-background/35 px-4">
++                      <span className="min-w-0 flex-1 text-sm font-medium">Open project</span>
++                      <OpenInPicker
++                        environmentId={activeThreadEnvironmentId}
++                        keybindings={keybindings}
++                        availableEditors={availableEditors}
++                        openInCwd={openInCwd}
++                        compact
++                      />
++                    </div>
++                  ) : null}
++                </SheetPanel>
++              </PhoneSheetPopup>
++            </Sheet>
++          </>
++        ) : (
++          <>
++            {activeProjectScripts ? (
++              <ProjectScriptsControl
++                scripts={activeProjectScripts}
++                keybindings={keybindings}
++                preferredScriptId={preferredScriptId}
++                onRunScript={onRunProjectScript}
++                onAddScript={onAddProjectScript}
++                onUpdateScript={onUpdateProjectScript}
++                onDeleteScript={onDeleteProjectScript}
++              />
++            ) : null}
++            {showOpenInPicker ? (
++              <OpenInPicker
++                environmentId={activeThreadEnvironmentId}
++                keybindings={keybindings}
++                availableEditors={availableEditors}
++                openInCwd={openInCwd}
++              />
++            ) : null}
++            {activeProjectName ? (
++              <GitActionsControl
++                gitCwd={gitCwd}
++                activeThreadRef={scopeThreadRef(activeThreadEnvironmentId, activeThreadId)}
++                {...(draftId ? { draftId } : {})}
++              />
++            ) : null}
++          </>
+         )}
+       </div>
+     </div>
+diff --git a/apps/web/src/components/ui/phone-sheet.logic.test.ts b/apps/web/src/components/ui/phone-sheet.logic.test.ts
+new file mode 100644
+index 000000000..a86f6e463
+--- /dev/null
++++ b/apps/web/src/components/ui/phone-sheet.logic.test.ts
+@@ -0,0 +1,60 @@
++import { describe, expect, it } from "vite-plus/test";
++
++import { resolvePhoneSheetGesture } from "./phone-sheet.logic";
++
++describe("resolvePhoneSheetGesture", () => {
++  it("dismisses a sheet after a downward swipe", () => {
++    expect(
++      resolvePhoneSheetGesture({
++        snap: "medium",
++        deltaY: 110,
++        elapsedMs: 400,
++        allowMediumSnap: true,
++      }),
++    ).toBe("dismiss");
++  });
++
++  it("dismisses a sheet after a short fast flick", () => {
++    expect(
++      resolvePhoneSheetGesture({
++        snap: "full",
++        deltaY: 50,
++        elapsedMs: 80,
++        allowMediumSnap: true,
++      }),
++    ).toBe("dismiss");
++  });
++
++  it("expands a medium sheet after an upward drag", () => {
++    expect(
++      resolvePhoneSheetGesture({
++        snap: "medium",
++        deltaY: -70,
++        elapsedMs: 300,
++        allowMediumSnap: true,
++      }),
++    ).toBe("full");
++  });
++
++  it("settles a full sheet at medium after a small downward drag", () => {
++    expect(
++      resolvePhoneSheetGesture({
++        snap: "full",
++        deltaY: 45,
++        elapsedMs: 300,
++        allowMediumSnap: true,
++      }),
++    ).toBe("medium");
++  });
++
++  it("keeps a full-only sheet expanded when the gesture does not dismiss it", () => {
++    expect(
++      resolvePhoneSheetGesture({
++        snap: "full",
++        deltaY: 40,
++        elapsedMs: 300,
++        allowMediumSnap: false,
++      }),
++    ).toBe("full");
++  });
++});
+diff --git a/apps/web/src/components/ui/phone-sheet.logic.ts b/apps/web/src/components/ui/phone-sheet.logic.ts
+new file mode 100644
+index 000000000..3b51a8477
+--- /dev/null
++++ b/apps/web/src/components/ui/phone-sheet.logic.ts
+@@ -0,0 +1,26 @@
++export type PhoneSheetSnap = "medium" | "full";
++
++export type PhoneSheetGestureResult = PhoneSheetSnap | "dismiss";
++
++export function resolvePhoneSheetGesture(input: {
++  snap: PhoneSheetSnap;
++  deltaY: number;
++  elapsedMs: number;
++  allowMediumSnap: boolean;
++}): PhoneSheetGestureResult {
++  const velocityY = input.deltaY / Math.max(input.elapsedMs, 1);
++
++  if (input.deltaY > 96 || velocityY > 0.55) {
++    return "dismiss";
++  }
++  if (!input.allowMediumSnap) {
++    return "full";
++  }
++  if (input.snap === "medium" && input.deltaY < -56) {
++    return "full";
++  }
++  if (input.snap === "full" && input.deltaY > 36) {
++    return "medium";
++  }
++  return input.snap;
++}
+diff --git a/apps/web/src/components/ui/phone-sheet.tsx b/apps/web/src/components/ui/phone-sheet.tsx
+new file mode 100644
+index 000000000..f59f13a72
+--- /dev/null
++++ b/apps/web/src/components/ui/phone-sheet.tsx
+@@ -0,0 +1,160 @@
++import {
++  type CSSProperties,
++  type PointerEvent as ReactPointerEvent,
++  type ReactNode,
++  useEffect,
++  useRef,
++  useState,
++} from "react";
++
++import { cn } from "~/lib/utils";
++import { resolvePhoneSheetGesture, type PhoneSheetSnap } from "./phone-sheet.logic";
++import { SheetPopup } from "./sheet";
++
++interface PhoneSheetPopupProps {
++  children: ReactNode;
++  className?: string;
++  open: boolean;
++  onDismiss: () => void;
++  initialSnap?: PhoneSheetSnap;
++  allowMediumSnap?: boolean;
++}
++
++interface DragState {
++  pointerId: number;
++  startY: number;
++  startHeight: number;
++  startedAt: number;
++  snap: PhoneSheetSnap;
++}
++
++export function PhoneSheetPopup({
++  children,
++  className,
++  open,
++  onDismiss,
++  initialSnap = "medium",
++  allowMediumSnap = true,
++}: PhoneSheetPopupProps) {
++  const popupRef = useRef<HTMLDivElement | null>(null);
++  const dragStateRef = useRef<DragState | null>(null);
++  const suppressClickRef = useRef(false);
++  const [snap, setSnap] = useState<PhoneSheetSnap>(initialSnap);
++  const [isDragging, setIsDragging] = useState(false);
++  const [dragOffset, setDragOffset] = useState(0);
++  const [dragHeight, setDragHeight] = useState<number | null>(null);
++
++  useEffect(() => {
++    if (!open) return;
++    setSnap(initialSnap);
++    setIsDragging(false);
++    setDragOffset(0);
++    setDragHeight(null);
++    dragStateRef.current = null;
++    suppressClickRef.current = false;
++  }, [initialSnap, open]);
++
++  const resetDrag = () => {
++    dragStateRef.current = null;
++    setIsDragging(false);
++    setDragOffset(0);
++    setDragHeight(null);
++  };
++
++  const cancelDrag = () => {
++    suppressClickRef.current = false;
++    resetDrag();
++  };
++
++  const handlePointerDown = (event: ReactPointerEvent<HTMLButtonElement>) => {
++    if (event.pointerType === "mouse" && event.button !== 0) return;
++    const popup = popupRef.current;
++    if (!popup) return;
++
++    event.currentTarget.setPointerCapture(event.pointerId);
++    dragStateRef.current = {
++      pointerId: event.pointerId,
++      startY: event.clientY,
++      startHeight: popup.getBoundingClientRect().height,
++      startedAt: performance.now(),
++      snap,
++    };
++    setIsDragging(true);
++  };
++
++  const handlePointerMove = (event: ReactPointerEvent<HTMLButtonElement>) => {
++    const dragState = dragStateRef.current;
++    if (!dragState || dragState.pointerId !== event.pointerId) return;
++    const deltaY = event.clientY - dragState.startY;
++    if (Math.abs(deltaY) > 5) suppressClickRef.current = true;
++
++    if (dragState.snap === "medium" && deltaY < 0 && allowMediumSnap) {
++      setDragHeight(Math.min(window.innerHeight * 0.92, dragState.startHeight + Math.abs(deltaY)));
++      setDragOffset(0);
++      return;
++    }
++
++    setDragHeight(null);
++    setDragOffset(Math.max(0, deltaY));
++  };
++
++  const finishDrag = (event: ReactPointerEvent<HTMLButtonElement>) => {
++    const dragState = dragStateRef.current;
++    if (!dragState || dragState.pointerId !== event.pointerId) return;
++    const deltaY = event.clientY - dragState.startY;
++    const result = resolvePhoneSheetGesture({
++      snap: dragState.snap,
++      deltaY,
++      elapsedMs: performance.now() - dragState.startedAt,
++      allowMediumSnap,
++    });
++
++    resetDrag();
++    if (result === "dismiss") {
++      onDismiss();
++      return;
++    }
++    setSnap(result);
++  };
++
++  const style: CSSProperties = {
++    ...(dragHeight !== null ? { height: dragHeight } : {}),
++    ...(dragOffset > 0 ? { transform: `translateY(${dragOffset}px)` } : {}),
++  };
++
++  return (
++    <SheetPopup
++      ref={popupRef}
++      side="bottom"
++      showCloseButton={false}
++      style={style}
++      data-phone-sheet-snap={snap}
++      className={cn(
++        "max-h-[92dvh] rounded-t-3xl border-x border-border/60 pb-[env(safe-area-inset-bottom)] transition-[height,opacity,translate,transform] duration-200 ease-out",
++        snap === "full" ? "h-[92dvh]" : "h-[min(60dvh,34rem)]",
++        isDragging && "transition-none",
++        className,
++      )}
++    >
++      <button
++        type="button"
++        aria-label={allowMediumSnap ? "Resize or close sheet" : "Swipe down to close sheet"}
++        className="flex h-8 w-full shrink-0 touch-none items-center justify-center rounded-t-3xl outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
++        onClick={() => {
++          if (suppressClickRef.current) {
++            suppressClickRef.current = false;
++            return;
++          }
++          if (allowMediumSnap) setSnap((current) => (current === "medium" ? "full" : "medium"));
++        }}
++        onPointerDown={handlePointerDown}
++        onPointerMove={handlePointerMove}
++        onPointerUp={finishDrag}
++        onPointerCancel={cancelDrag}
++      >
++        <span className="h-1 w-10 rounded-full bg-muted-foreground/30" />
++      </button>
++      {children}
++    </SheetPopup>
++  );
++}
+-- 
+2.51.0
+

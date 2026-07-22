@@ -69,6 +69,33 @@ public class MainActivity extends BridgeActivity {
               window.__t3CapacitorStatusBarStyle = null;
             });
           };
+          const overlayViewportSelector = [
+            '[data-slot="sheet-viewport"]',
+            '[data-slot="dialog-viewport"]',
+            '[data-slot="alert-dialog-viewport"]',
+            '[data-slot="command-dialog-viewport"]',
+          ].join(',');
+          const syncOverlayViewports = () => {
+            const vv = window.visualViewport;
+            const keyboardOpen = Boolean(vv && vv.height < window.innerHeight - 1);
+            const offsetTop = keyboardOpen ? vv.offsetTop || 0 : 0;
+            const height = keyboardOpen ? vv.height : null;
+            const imeInset = keyboardOpen
+              ? Math.max(0, window.innerHeight - vv.height - (vv.offsetTop || 0))
+              : 0;
+            document.documentElement.style.setProperty('--ime-inset-bottom', `${imeInset}px`);
+            for (const el of document.querySelectorAll(overlayViewportSelector)) {
+              if (!keyboardOpen) {
+                el.style.removeProperty('top');
+                el.style.removeProperty('height');
+                el.style.removeProperty('bottom');
+                continue;
+              }
+              set(el, 'top', `${offsetTop}px`);
+              set(el, 'height', `${height}px`);
+              set(el, 'bottom', 'auto');
+            }
+          };
           const apply = () => {
             updateComposerFocusGuard();
             if (document.activeElement instanceof HTMLElement && document.activeElement.matches(composerSelector)) {
@@ -103,12 +130,15 @@ public class MainActivity extends BridgeActivity {
 
             const sidebarToggle = document.querySelector('button[aria-label="Toggle main sidebar"]');
             set(sidebarToggle?.parentElement, 'top', 'var(--safe-area-inset-top, env(safe-area-inset-top, 0px))');
+            syncOverlayViewports();
           };
 
           const observer = new MutationObserver(apply);
           observer.observe(document.documentElement, { childList: true, subtree: true });
           const themeObserver = new MutationObserver(apply);
           themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+          window.visualViewport?.addEventListener('resize', syncOverlayViewports);
+          window.visualViewport?.addEventListener('scroll', syncOverlayViewports);
           window.__t3CapacitorSafeAreaObserver = { observer, themeObserver };
           window.__t3CapacitorComposerBehavior = true;
           apply();
