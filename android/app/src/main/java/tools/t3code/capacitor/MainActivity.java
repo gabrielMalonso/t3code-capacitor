@@ -14,19 +14,19 @@ public class MainActivity extends BridgeActivity {
           const set = (element, property, value) => element?.style.setProperty(property, value, 'important');
           const composerSelector = '[data-testid="composer-editor"]';
           let observedPath = location.pathname;
-          let guardedDraftPath = observedPath.startsWith('/draft/') ? observedPath : null;
+          let guardedComposerPath = observedPath;
           let lastComposerPointerDown = Number.NEGATIVE_INFINITY;
-          const updateDraftFocusGuard = () => {
+          const updateComposerFocusGuard = () => {
             const path = location.pathname;
             if (path === observedPath) return;
             observedPath = path;
-            guardedDraftPath = path.startsWith('/draft/') ? path : null;
+            guardedComposerPath = path;
           };
-          const suppressDraftAutofocus = (editor) => {
-            updateDraftFocusGuard();
-            if (guardedDraftPath !== location.pathname) return;
+          const suppressComposerAutofocus = (editor) => {
+            updateComposerFocusGuard();
+            if (guardedComposerPath !== location.pathname) return;
             if (performance.now() - lastComposerPointerDown < 750) {
-              guardedDraftPath = null;
+              guardedComposerPath = null;
               return;
             }
             editor.blur();
@@ -39,7 +39,7 @@ public class MainActivity extends BridgeActivity {
           }, true);
           document.addEventListener('focusin', (event) => {
             if (event.target instanceof HTMLElement && event.target.matches(composerSelector)) {
-              suppressDraftAutofocus(event.target);
+              suppressComposerAutofocus(event.target);
             }
           }, true);
           document.addEventListener('keydown', (event) => {
@@ -70,9 +70,9 @@ public class MainActivity extends BridgeActivity {
             });
           };
           const apply = () => {
-            updateDraftFocusGuard();
+            updateComposerFocusGuard();
             if (document.activeElement instanceof HTMLElement && document.activeElement.matches(composerSelector)) {
-              suppressDraftAutofocus(document.activeElement);
+              suppressComposerAutofocus(document.activeElement);
             }
             syncStatusBar();
             set(document.documentElement, 'min-height', '100svh');

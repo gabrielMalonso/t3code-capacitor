@@ -32,8 +32,8 @@ local fallback bundle; update `capacitor.config.json` as well when changing the 
 after every page load. This keeps the title bar, sidebar footer, composer, and settings controls out
 of both the Android status bar and the gesture/task bar in portrait and landscape. It also follows
 the T3 Code light/dark theme for status-bar content and aligns the floating sidebar control below
-the top inset. On Android, new drafts open without focusing the composer, and Enter inserts a line
-break instead of sending; messages are submitted with the send button.
+the top inset. On Android, opening or switching chats leaves the composer unfocused, and Enter
+inserts a line break instead of sending; messages are submitted with the send button.
 
 ## Remote environments
 
