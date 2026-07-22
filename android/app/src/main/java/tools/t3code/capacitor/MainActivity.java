@@ -12,7 +12,18 @@ public class MainActivity extends BridgeActivity {
         (() => {
           if (window.__t3CapacitorSafeAreaObserver) return;
           const set = (element, property, value) => element?.style.setProperty(property, value, 'important');
+          const syncStatusBar = () => {
+            const style = document.documentElement.classList.contains('dark') ? 'DARK' : 'LIGHT';
+            if (window.__t3CapacitorStatusBarStyle === style) return;
+            const systemBars = window.Capacitor?.Plugins?.SystemBars;
+            if (!systemBars?.setStyle) return;
+            window.__t3CapacitorStatusBarStyle = style;
+            systemBars.setStyle({ style, bar: 'StatusBar' }).catch(() => {
+              window.__t3CapacitorStatusBarStyle = null;
+            });
+          };
           const apply = () => {
+            syncStatusBar();
             set(document.documentElement, 'min-height', '100svh');
             set(document.documentElement, 'height', '100%');
             set(document.body, 'min-height', '100svh');
@@ -38,11 +49,16 @@ public class MainActivity extends BridgeActivity {
               set(sidebar, 'bottom', 'var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px))');
               set(sidebar, 'height', 'auto');
             }
+
+            const sidebarToggle = document.querySelector('button[aria-label="Toggle main sidebar"]');
+            set(sidebarToggle?.parentElement, 'top', 'var(--safe-area-inset-top, env(safe-area-inset-top, 0px))');
           };
 
           const observer = new MutationObserver(apply);
           observer.observe(document.documentElement, { childList: true, subtree: true });
-          window.__t3CapacitorSafeAreaObserver = observer;
+          const themeObserver = new MutationObserver(apply);
+          themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+          window.__t3CapacitorSafeAreaObserver = { observer, themeObserver };
           apply();
         })();
         """;

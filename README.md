@@ -30,7 +30,9 @@ local fallback bundle; update `capacitor.config.json` as well when changing the 
 
 `MainActivity` reapplies the Capacitor System Bars insets to full-height and fixed T3 Code surfaces
 after every page load. This keeps the title bar, sidebar footer, composer, and settings controls out
-of both the Android status bar and the gesture/task bar in portrait and landscape.
+of both the Android status bar and the gesture/task bar in portrait and landscape. It also follows
+the T3 Code light/dark theme for status-bar content and aligns the floating sidebar control below
+the top inset.
 
 ## Remote environments
 
