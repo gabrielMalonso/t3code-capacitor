@@ -15,6 +15,7 @@ The wrapper makes a small set of runtime changes tailored to Android tablets:
 - applies the top, bottom, left, and right safe-area insets in portrait and landscape;
 - keeps the composer, sidebar, title bar, and settings controls clear of Android system bars;
 - follows the active T3 Code theme with light or dark status-bar content;
+- uses the official T3 Code production mark as an adaptive Android launcher icon;
 - aligns the floating sidebar toggle below the status bar;
 - prevents the keyboard from opening automatically when a chat is opened or changed;
 - makes Enter insert a line break instead of sending, leaving submission to the send button.
