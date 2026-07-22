@@ -1,0 +1,18 @@
+{
+  "appId": "tools.t3code.capacitor",
+  "appName": "T3 Code Capacitor",
+  "webDir": "www",
+  "loggingBehavior": "none",
+  "plugins": {
+    "SystemBars": {
+      "insetsHandling": "css",
+      "style": "DEFAULT",
+      "hidden": false
+    }
+  },
+  "server": {
+    "url": "https://mac-mini-de-gabriel.tailad333c.ts.net",
+    "cleartext": true,
+    "androidScheme": "http"
+  }
+}
