@@ -1,25 +1,8 @@
-From 21186c34a10913ab76bb85c68960581f38f275c6 Mon Sep 17 00:00:00 2001
-From: gabrielMalonso <gabriel_alonso_@outlook.com>
-Date: Wed, 22 Jul 2026 16:49:50 -0300
-Subject: [PATCH] feat: add phone header and draggable drawers
-
----
- .../BranchToolbarBranchSelector.tsx           |  35 ++-
- apps/web/src/components/ChatView.tsx          |  12 +-
- apps/web/src/components/chat/ChatHeader.tsx   | 200 +++++++++++++++---
- .../components/ui/phone-sheet.logic.test.ts   |  60 ++++++
- .../src/components/ui/phone-sheet.logic.ts    |  26 +++
- apps/web/src/components/ui/phone-sheet.tsx    | 160 ++++++++++++++
- 6 files changed, 432 insertions(+), 61 deletions(-)
- create mode 100644 apps/web/src/components/ui/phone-sheet.logic.test.ts
- create mode 100644 apps/web/src/components/ui/phone-sheet.logic.ts
- create mode 100644 apps/web/src/components/ui/phone-sheet.tsx
-
 diff --git a/apps/web/src/components/BranchToolbarBranchSelector.tsx b/apps/web/src/components/BranchToolbarBranchSelector.tsx
-index 687f9f34a..9b1e8ddf4 100644
+index b40343462..1a9a630fa 100644
 --- a/apps/web/src/components/BranchToolbarBranchSelector.tsx
 +++ b/apps/web/src/components/BranchToolbarBranchSelector.tsx
-@@ -56,14 +56,8 @@ import {
+@@ -59,14 +59,8 @@ import {
  } from "./ThreadStatusIndicators";
  import { Button } from "./ui/button";
  import { Input } from "./ui/input";
@@ -36,7 +19,7 @@ index 687f9f34a..9b1e8ddf4 100644
  import { Switch } from "./ui/switch";
  import {
    Combobox,
-@@ -791,13 +785,8 @@ export function BranchToolbarBranchSelector({
+@@ -834,13 +828,8 @@ export function BranchToolbarBranchSelector({
          </div>
  
          <Sheet open={isPhoneContextOpen} onOpenChange={setIsPhoneContextOpen}>
@@ -52,7 +35,7 @@ index 687f9f34a..9b1e8ddf4 100644
                <SheetTitle className="text-lg">Work context</SheetTitle>
                <SheetDescription>
                  Choose where this thread runs and what it checks out.
-@@ -854,17 +843,17 @@ export function BranchToolbarBranchSelector({
+@@ -897,17 +886,17 @@ export function BranchToolbarBranchSelector({
                  </div>
                </section>
              </SheetPanel>
@@ -77,7 +60,7 @@ index 687f9f34a..9b1e8ddf4 100644
                <Button
                  variant="ghost"
                  size="icon-sm"
-@@ -957,7 +946,7 @@ export function BranchToolbarBranchSelector({
+@@ -1000,7 +989,7 @@ export function BranchToolbarBranchSelector({
                  {branchStatusText}
                </div>
              ) : null}
@@ -87,7 +70,7 @@ index 687f9f34a..9b1e8ddf4 100644
        </>
      );
 diff --git a/apps/web/src/components/ChatView.tsx b/apps/web/src/components/ChatView.tsx
-index ad303f607..8579fad54 100644
+index 8b0fe01bd..094931511 100644
 --- a/apps/web/src/components/ChatView.tsx
 +++ b/apps/web/src/components/ChatView.tsx
 @@ -114,7 +114,7 @@ import { useTheme } from "../hooks/useTheme";
@@ -99,7 +82,7 @@ index ad303f607..8579fad54 100644
  import { RIGHT_PANEL_INLINE_LAYOUT_MEDIA_QUERY } from "../rightPanelLayout";
  import {
    selectActiveRightPanel,
-@@ -1222,6 +1222,7 @@ function ChatViewContent(props: ChatViewProps) {
+@@ -1225,6 +1225,7 @@ function ChatViewContent(props: ChatViewProps) {
    const [pendingUserInputQuestionIndexByRequestId, setPendingUserInputQuestionIndexByRequestId] =
      useState<Record<string, number>>({});
    const shouldUsePlanSidebarSheet = useMediaQuery(RIGHT_PANEL_INLINE_LAYOUT_MEDIA_QUERY);
@@ -107,7 +90,7 @@ index ad303f607..8579fad54 100644
    // Tracks whether the user explicitly dismissed the sidebar for the active turn.
    const planSidebarDismissedForTurnRef = useRef<string | null>(null);
    // When set, the thread-change reset effect will open the sidebar instead of closing it.
-@@ -5187,7 +5188,7 @@ function ChatViewContent(props: ChatViewProps) {
+@@ -5213,7 +5214,7 @@ function ChatViewContent(props: ChatViewProps) {
  
    return (
      <div className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden bg-background">
@@ -116,7 +99,7 @@ index ad303f607..8579fad54 100644
        <div
          className={cn(
            "flex min-h-0 min-w-0 flex-col overflow-x-hidden",
-@@ -5211,7 +5212,7 @@ function ChatViewContent(props: ChatViewProps) {
+@@ -5237,7 +5238,7 @@ function ChatViewContent(props: ChatViewProps) {
              COLLAPSED_SIDEBAR_TITLEBAR_INSET_CLASS,
            )}
          >
@@ -125,7 +108,7 @@ index ad303f607..8579fad54 100644
            <ChatHeader
              activeThreadEnvironmentId={activeThread.environmentId}
              activeThreadId={activeThread.id}
-@@ -5226,8 +5227,13 @@ function ChatViewContent(props: ChatViewProps) {
+@@ -5252,8 +5253,13 @@ function ChatViewContent(props: ChatViewProps) {
              }
              keybindings={keybindings}
              availableEditors={availableEditors}
@@ -672,6 +655,3 @@ index 000000000..f59f13a72
 +    </SheetPopup>
 +  );
 +}
--- 
-2.51.0
-
