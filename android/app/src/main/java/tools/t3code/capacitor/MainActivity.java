@@ -12,6 +12,53 @@ public class MainActivity extends BridgeActivity {
         (() => {
           if (window.__t3CapacitorSafeAreaObserver) return;
           const set = (element, property, value) => element?.style.setProperty(property, value, 'important');
+          const composerSelector = '[data-testid="composer-editor"]';
+          let observedPath = location.pathname;
+          let guardedDraftPath = observedPath.startsWith('/draft/') ? observedPath : null;
+          let lastComposerPointerDown = Number.NEGATIVE_INFINITY;
+          const updateDraftFocusGuard = () => {
+            const path = location.pathname;
+            if (path === observedPath) return;
+            observedPath = path;
+            guardedDraftPath = path.startsWith('/draft/') ? path : null;
+          };
+          const suppressDraftAutofocus = (editor) => {
+            updateDraftFocusGuard();
+            if (guardedDraftPath !== location.pathname) return;
+            if (performance.now() - lastComposerPointerDown < 750) {
+              guardedDraftPath = null;
+              return;
+            }
+            editor.blur();
+            window.getSelection()?.removeAllRanges();
+          };
+          document.addEventListener('pointerdown', (event) => {
+            if (event.target instanceof Element && event.target.closest(composerSelector)) {
+              lastComposerPointerDown = performance.now();
+            }
+          }, true);
+          document.addEventListener('focusin', (event) => {
+            if (event.target instanceof HTMLElement && event.target.matches(composerSelector)) {
+              suppressDraftAutofocus(event.target);
+            }
+          }, true);
+          document.addEventListener('keydown', (event) => {
+            if (
+              event.key !== 'Enter' ||
+              event.shiftKey ||
+              event.isComposing ||
+              event.keyCode === 229 ||
+              !(event.target instanceof Element) ||
+              !event.target.matches(composerSelector)
+            ) return;
+            try {
+              Object.defineProperty(event, 'shiftKey', { configurable: true, get: () => true });
+            } catch {
+              event.preventDefault();
+              event.stopImmediatePropagation();
+              document.execCommand('insertLineBreak');
+            }
+          }, true);
           const syncStatusBar = () => {
             const style = document.documentElement.classList.contains('dark') ? 'DARK' : 'LIGHT';
             if (window.__t3CapacitorStatusBarStyle === style) return;
@@ -23,6 +70,10 @@ public class MainActivity extends BridgeActivity {
             });
           };
           const apply = () => {
+            updateDraftFocusGuard();
+            if (document.activeElement instanceof HTMLElement && document.activeElement.matches(composerSelector)) {
+              suppressDraftAutofocus(document.activeElement);
+            }
             syncStatusBar();
             set(document.documentElement, 'min-height', '100svh');
             set(document.documentElement, 'height', '100%');
@@ -59,6 +110,7 @@ public class MainActivity extends BridgeActivity {
           const themeObserver = new MutationObserver(apply);
           themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
           window.__t3CapacitorSafeAreaObserver = { observer, themeObserver };
+          window.__t3CapacitorComposerBehavior = true;
           apply();
         })();
         """;
