@@ -18,7 +18,11 @@ import { fileURLToPath } from "node:url";
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const sourceRoot = resolve(process.env.T3CODE_SOURCE ?? join(projectRoot, "..", "t3code"));
 const patchesDir = join(projectRoot, "patches");
+const mobileDir = join(projectRoot, "mobile");
+const mobileSharedWebDir = join(mobileDir, "shared", "web");
+const mobilePhoneWebDir = join(mobileDir, "phone", "web");
 const webDir = join(projectRoot, "www");
+const checkOnly = process.argv.includes("--check");
 const primaryEnvironmentUrl =
   process.env.T3CODE_PRIMARY_URL ?? "https://mac-mini-de-gabriel.tailad333c.ts.net";
 
@@ -43,15 +47,13 @@ if (sourceStatus) {
 }
 
 const revision = read("git", ["-C", sourceRoot, "rev-parse", "HEAD"]);
-const patchNames = (await readdir(patchesDir))
-  .filter((name) => extname(name) === ".patch")
-  .sort();
+const patchNames = (await readdir(patchesDir)).filter((name) => extname(name) === ".patch").sort();
 const buildRoot = await mkdtemp(join(tmpdir(), "t3code-capacitor-build-"));
 
 try {
   run("git", ["clone", "--shared", "--no-checkout", sourceRoot, buildRoot]);
   run("git", ["-C", buildRoot, "checkout", "--detach", revision]);
-  await linkInstalledDependencies(buildRoot);
+  await stageMobileWebSources(buildRoot);
 
   for (const patchName of patchNames) {
     const patchPath = join(patchesDir, patchName);
@@ -59,37 +61,61 @@ try {
     run("git", ["-C", buildRoot, "apply", patchPath]);
   }
 
-  const buildEnvironment = {
-    ...process.env,
-    VITE_HOSTED_APP_CHANNEL: process.env.T3CODE_HOSTED_APP_CHANNEL ?? "nightly",
-  };
-  delete buildEnvironment.VITE_HTTP_URL;
-  delete buildEnvironment.VITE_WS_URL;
-  run("corepack", ["pnpm", "--dir", buildRoot, "--filter", "@t3tools/web", "build"], {
-    env: buildEnvironment,
-  });
+  await linkInstalledDependencies(buildRoot);
+  if (checkOnly) {
+    run("corepack", ["pnpm", "--dir", buildRoot, "fmt:check"]);
+    run("corepack", ["pnpm", "--dir", buildRoot, "--filter", "@t3tools/web", "typecheck"]);
+    run("corepack", [
+      "pnpm",
+      "--dir",
+      buildRoot,
+      "--filter",
+      "@t3tools/web",
+      "test",
+      "--",
+      "src/mobile/phone/phone-sheet.logic.test.ts",
+    ]);
+    console.log(`Mobile integration applies cleanly to ${revision}.`);
+  } else {
+    const buildEnvironment = {
+      ...process.env,
+      VITE_HOSTED_APP_CHANNEL: process.env.T3CODE_HOSTED_APP_CHANNEL ?? "nightly",
+    };
+    delete buildEnvironment.VITE_HTTP_URL;
+    delete buildEnvironment.VITE_WS_URL;
+    run("corepack", ["pnpm", "--dir", buildRoot, "--filter", "@t3tools/web", "build"], {
+      env: buildEnvironment,
+    });
 
-  const sourceDist = join(buildRoot, "apps", "web", "dist");
-  await stat(sourceDist);
-  await mkdir(webDir, { recursive: true });
+    const sourceDist = join(buildRoot, "apps", "web", "dist");
+    await stat(sourceDist);
+    await mkdir(webDir, { recursive: true });
 
-  const canonicalProjectRoot = await realpath(projectRoot);
-  const canonicalWebDir = await realpath(webDir);
-  if (canonicalWebDir !== join(canonicalProjectRoot, "www")) {
-    throw new Error(`Refusing to replace unexpected web directory: ${canonicalWebDir}`);
+    const canonicalProjectRoot = await realpath(projectRoot);
+    const canonicalWebDir = await realpath(webDir);
+    if (canonicalWebDir !== join(canonicalProjectRoot, "www")) {
+      throw new Error(`Refusing to replace unexpected web directory: ${canonicalWebDir}`);
+    }
+
+    console.log(`Replacing generated web bundle: ${canonicalWebDir}`);
+    await rm(canonicalWebDir, { recursive: true });
+    await cp(sourceDist, canonicalWebDir, { recursive: true });
+
+    await patchGeneratedBundle(canonicalWebDir, {
+      patchNames,
+      primaryEnvironmentUrl,
+      revision,
+    });
   }
-
-  console.log(`Replacing generated web bundle: ${canonicalWebDir}`);
-  await rm(canonicalWebDir, { recursive: true });
-  await cp(sourceDist, canonicalWebDir, { recursive: true });
-
-  await patchGeneratedBundle(canonicalWebDir, {
-    patchNames,
-    primaryEnvironmentUrl,
-    revision,
-  });
 } finally {
   await rm(buildRoot, { recursive: true, force: true });
+}
+
+async function stageMobileWebSources(targetRoot) {
+  const targetMobileDir = join(targetRoot, "apps", "web", "src", "mobile");
+  await mkdir(targetMobileDir, { recursive: true });
+  await cp(mobilePhoneWebDir, join(targetMobileDir, "phone"), { recursive: true });
+  await cp(mobileSharedWebDir, join(targetMobileDir, "shared"), { recursive: true });
 }
 
 async function linkInstalledDependencies(targetRoot) {
@@ -102,7 +128,10 @@ async function linkInstalledDependencies(targetRoot) {
   ]);
   const packageDirectories = new Set([
     ".",
-    ...packageFiles.split("\n").filter(Boolean).map((path) => dirname(path)),
+    ...packageFiles
+      .split("\n")
+      .filter(Boolean)
+      .map((path) => dirname(path)),
   ]);
 
   for (const packageDirectory of packageDirectories) {
@@ -162,11 +191,20 @@ async function patchGeneratedBundle(canonicalWebDir, buildMetadata) {
   if (!indexHtml.includes("viewport-fit=cover")) {
     throw new Error("The T3 Code viewport is missing viewport-fit=cover.");
   }
+  const mobileStylesheetName = "t3code-capacitor.css";
+  const mobileStylesheetPath = join(canonicalWebDir, mobileStylesheetName);
+  await cp(join(mobileSharedWebDir, "capacitor.css"), mobileStylesheetPath);
+  const stylesheetTag = `<link rel="stylesheet" href="./${mobileStylesheetName}">`;
+  if (!indexHtml.includes("</head>")) {
+    throw new Error("The T3 Code build is missing a closing head element.");
+  }
+  await writeFile(indexPath, indexHtml.replace("</head>", `  ${stylesheetTag}\n</head>`));
 
   const metadata = {
     source: relative(projectRoot, sourceRoot),
     revision: buildMetadata.revision,
     patches: buildMetadata.patchNames,
+    mobileSources: ["shared", "phone", "tablet"],
     builtAt: new Date().toISOString(),
     primaryEnvironmentUrl: buildMetadata.primaryEnvironmentUrl,
     safeAreaFallbacks: replacementCounts,

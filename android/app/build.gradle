@@ -3,6 +3,9 @@ apply plugin: 'com.android.application'
 android {
     namespace = "tools.t3code.capacitor"
     compileSdk = rootProject.ext.compileSdkVersion
+    sourceSets {
+        main.assets.srcDir '../../mobile/shared/android/assets'
+    }
     defaultConfig {
         applicationId "tools.t3code.capacitor"
         minSdkVersion rootProject.ext.minSdkVersion

@@ -4,146 +4,14 @@ import android.os.Bundle;
 import android.webkit.WebView;
 import com.getcapacitor.BridgeActivity;
 import com.getcapacitor.WebViewListener;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 
 public class MainActivity extends BridgeActivity {
 
-    private static final String SAFE_AREA_SCRIPT =
-        """
-        (() => {
-          if (window.__t3CapacitorSafeAreaObserver) return;
-          const set = (element, property, value) => element?.style.setProperty(property, value, 'important');
-          const composerSelector = '[data-testid="composer-editor"]';
-          let observedPath = location.pathname;
-          let guardedComposerPath = observedPath;
-          let lastComposerPointerDown = Number.NEGATIVE_INFINITY;
-          const updateComposerFocusGuard = () => {
-            const path = location.pathname;
-            if (path === observedPath) return;
-            observedPath = path;
-            guardedComposerPath = path;
-          };
-          const suppressComposerAutofocus = (editor) => {
-            updateComposerFocusGuard();
-            if (guardedComposerPath !== location.pathname) return;
-            if (performance.now() - lastComposerPointerDown < 750) {
-              guardedComposerPath = null;
-              return;
-            }
-            editor.blur();
-            window.getSelection()?.removeAllRanges();
-          };
-          document.addEventListener('pointerdown', (event) => {
-            if (event.target instanceof Element && event.target.closest(composerSelector)) {
-              lastComposerPointerDown = performance.now();
-            }
-          }, true);
-          document.addEventListener('focusin', (event) => {
-            if (event.target instanceof HTMLElement && event.target.matches(composerSelector)) {
-              suppressComposerAutofocus(event.target);
-            }
-          }, true);
-          document.addEventListener('keydown', (event) => {
-            if (
-              event.key !== 'Enter' ||
-              event.shiftKey ||
-              event.isComposing ||
-              event.keyCode === 229 ||
-              !(event.target instanceof Element) ||
-              !event.target.matches(composerSelector)
-            ) return;
-            try {
-              Object.defineProperty(event, 'shiftKey', { configurable: true, get: () => true });
-            } catch {
-              event.preventDefault();
-              event.stopImmediatePropagation();
-              document.execCommand('insertLineBreak');
-            }
-          }, true);
-          const syncStatusBar = () => {
-            const style = document.documentElement.classList.contains('dark') ? 'DARK' : 'LIGHT';
-            if (window.__t3CapacitorStatusBarStyle === style) return;
-            const systemBars = window.Capacitor?.Plugins?.SystemBars;
-            if (!systemBars?.setStyle) return;
-            window.__t3CapacitorStatusBarStyle = style;
-            systemBars.setStyle({ style, bar: 'StatusBar' }).catch(() => {
-              window.__t3CapacitorStatusBarStyle = null;
-            });
-          };
-          const overlayViewportSelector = [
-            '[data-slot="sheet-viewport"]',
-            '[data-slot="dialog-viewport"]',
-            '[data-slot="alert-dialog-viewport"]',
-            '[data-slot="command-dialog-viewport"]',
-          ].join(',');
-          const syncOverlayViewports = () => {
-            const vv = window.visualViewport;
-            const keyboardOpen = Boolean(vv && vv.height < window.innerHeight - 1);
-            const offsetTop = keyboardOpen ? vv.offsetTop || 0 : 0;
-            const height = keyboardOpen ? vv.height : null;
-            const imeInset = keyboardOpen
-              ? Math.max(0, window.innerHeight - vv.height - (vv.offsetTop || 0))
-              : 0;
-            document.documentElement.style.setProperty('--ime-inset-bottom', `${imeInset}px`);
-            for (const el of document.querySelectorAll(overlayViewportSelector)) {
-              if (!keyboardOpen) {
-                el.style.removeProperty('top');
-                el.style.removeProperty('height');
-                el.style.removeProperty('bottom');
-                continue;
-              }
-              set(el, 'top', `${offsetTop}px`);
-              set(el, 'height', `${height}px`);
-              set(el, 'bottom', 'auto');
-            }
-          };
-          const apply = () => {
-            updateComposerFocusGuard();
-            if (document.activeElement instanceof HTMLElement && document.activeElement.matches(composerSelector)) {
-              suppressComposerAutofocus(document.activeElement);
-            }
-            syncStatusBar();
-            set(document.documentElement, 'min-height', '100svh');
-            set(document.documentElement, 'height', '100%');
-            set(document.body, 'min-height', '100svh');
-            set(document.body, 'height', '100%');
-
-            const root = document.querySelector('#root');
-            set(root, 'min-height', '0');
-            set(root, 'height', '100%');
-            set(root, 'box-sizing', 'border-box');
-            set(root, 'padding-top', 'var(--safe-area-inset-top, env(safe-area-inset-top, 0px))');
-            set(root, 'padding-bottom', 'var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px))');
-
-            for (const wrapper of document.querySelectorAll('[data-slot="sidebar-wrapper"]')) {
-              set(wrapper, 'height', 'calc(100dvh - var(--safe-area-inset-top) - var(--safe-area-inset-bottom))');
-              set(wrapper, 'min-height', '0');
-            }
-            for (const inset of document.querySelectorAll('[data-slot="sidebar-inset"]')) {
-              set(inset, 'height', '100%');
-              set(inset, 'min-height', '0');
-            }
-            for (const sidebar of document.querySelectorAll('[data-slot="sidebar-container"]')) {
-              set(sidebar, 'top', 'var(--safe-area-inset-top, env(safe-area-inset-top, 0px))');
-              set(sidebar, 'bottom', 'var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px))');
-              set(sidebar, 'height', 'auto');
-            }
-
-            const sidebarToggle = document.querySelector('button[aria-label="Toggle main sidebar"]');
-            set(sidebarToggle?.parentElement, 'top', 'var(--safe-area-inset-top, env(safe-area-inset-top, 0px))');
-            syncOverlayViewports();
-          };
-
-          const observer = new MutationObserver(apply);
-          observer.observe(document.documentElement, { childList: true, subtree: true });
-          const themeObserver = new MutationObserver(apply);
-          themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
-          window.visualViewport?.addEventListener('resize', syncOverlayViewports);
-          window.visualViewport?.addEventListener('scroll', syncOverlayViewports);
-          window.__t3CapacitorSafeAreaObserver = { observer, themeObserver };
-          window.__t3CapacitorComposerBehavior = true;
-          apply();
-        })();
-        """;
+    private String mobileBridgeScript;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -153,14 +21,32 @@ public class MainActivity extends BridgeActivity {
             new WebViewListener() {
                 @Override
                 public void onPageLoaded(WebView webView) {
-                    applySafeArea(webView);
+                    applyMobileBridge(webView);
                 }
             }
         );
-        bridge.getWebView().post(() -> applySafeArea(bridge.getWebView()));
+        bridge.getWebView().post(() -> applyMobileBridge(bridge.getWebView()));
     }
 
-    private void applySafeArea(WebView webView) {
-        webView.evaluateJavascript(SAFE_AREA_SCRIPT, null);
+    private void applyMobileBridge(WebView webView) {
+        webView.evaluateJavascript(loadMobileBridgeScript(), null);
+    }
+
+    private String loadMobileBridgeScript() {
+        if (mobileBridgeScript != null) return mobileBridgeScript;
+        try (
+            InputStream input = getAssets().open("native-bridge.js");
+            ByteArrayOutputStream output = new ByteArrayOutputStream()
+        ) {
+            byte[] buffer = new byte[8192];
+            int length;
+            while ((length = input.read(buffer)) != -1) {
+                output.write(buffer, 0, length);
+            }
+            mobileBridgeScript = output.toString(StandardCharsets.UTF_8.name());
+            return mobileBridgeScript;
+        } catch (IOException error) {
+            throw new IllegalStateException("Unable to load native-bridge.js", error);
+        }
     }
 }

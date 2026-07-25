@@ -1,0 +1,384 @@
+diff --git a/apps/web/src/components/BranchToolbar.tsx b/apps/web/src/components/BranchToolbar.tsx
+--- a/apps/web/src/components/BranchToolbar.tsx
++++ b/apps/web/src/components/BranchToolbar.tsx
+@@ -14,6 +14,8 @@ import { memo, useCallback, useMemo } from "react";
+ import { useComposerDraftStore, type DraftId } from "../composerDraftStore";
+ import { useProject, useThread, useThreadShellsForProjectRefs } from "../state/entities";
+ import { useIsMobile } from "../hooks/useMediaQuery";
++import { PhoneRunContextPanel } from "../mobile/phone/PhoneRunContextPanel";
++import { useIsPhone } from "../mobile/shared/useIsPhone";
+ import {
+   type EnvMode,
+   type EnvironmentOption,
+@@ -275,12 +277,13 @@ export const BranchToolbar = memo(function BranchToolbar({
+     canPickEnvironment: showEnvironmentPicker,
+   });
+   const isMobile = useIsMobile();
++  const isPhone = useIsPhone();
+ 
+   if (!hasActiveThread || !activeProject) return null;
+ 
+   return (
+     <div className="chat-composer-context-strip -mt-4 mx-auto flex w-[calc(100%-2.75rem)] max-w-[calc(48rem-2.75rem)] items-center gap-2 px-1 pt-5 pb-1">
+-      {isMobile ? (
++      {isPhone ? null : isMobile ? (
+         <MobileRunContextSelector
+           envLocked={envLocked}
+           envModeLocked={envModeLocked}
+@@ -328,6 +331,24 @@ export const BranchToolbar = memo(function BranchToolbar({
+         onStartFromOriginChange={onStartFromOriginChange}
+         {...(onCheckoutPullRequestRequest ? { onCheckoutPullRequestRequest } : {})}
+         {...(onComposerFocusRequest ? { onComposerFocusRequest } : {})}
++        presentation={isPhone ? "phone" : "default"}
++        phoneContextContent={
++          isPhone ? (
++            <PhoneRunContextPanel
++              envLocked={envLocked}
++              envModeLocked={envModeLocked}
++              environmentId={environmentId}
++              availableEnvironments={availableEnvironments}
++              showEnvironmentIndicator={showEnvironmentIndicator}
++              onEnvironmentChange={onEnvironmentChange}
++              effectiveEnvMode={effectiveEnvMode}
++              activeWorktreePath={activeWorktreePath}
++              onEnvModeChange={onEnvModeChange}
++              previousWorktreeLabel={previousWorktreeLabel}
++              onUsePreviousWorktree={onUsePreviousWorktree}
++            />
++          ) : undefined
++        }
+       />
+     </div>
+   );
+diff --git a/apps/web/src/components/BranchToolbarBranchSelector.tsx b/apps/web/src/components/BranchToolbarBranchSelector.tsx
+--- a/apps/web/src/components/BranchToolbarBranchSelector.tsx
++++ b/apps/web/src/components/BranchToolbarBranchSelector.tsx
+@@ -18,11 +18,13 @@ import {
+   useRef,
+   useState,
+   useTransition,
+   type MouseEvent as ReactMouseEvent,
++  type ReactNode,
+ } from "react";
+ 
+ import { useComposerDraftStore, type DraftId } from "../composerDraftStore";
+ import { writeTextToClipboard } from "../hooks/useCopyToClipboard";
++import { PhoneBranchSelector } from "../mobile/phone/PhoneBranchSelector";
+ import { readLocalApi } from "../localApi";
+ import { useOpenPrLink } from "../lib/openPullRequestLink";
+ import { usePaginatedBranches } from "../state/queries";
+@@ -72,6 +74,8 @@ interface BranchToolbarBranchSelectorProps {
+   onStartFromOriginChange: (startFromOrigin: boolean) => void;
+   onCheckoutPullRequestRequest?: (reference: string) => void;
+   onComposerFocusRequest?: () => void;
++  presentation?: "default" | "phone";
++  phoneContextContent?: ReactNode;
+ }
+ 
+ function toBranchActionErrorMessage(error: unknown): string {
+@@ -108,6 +112,8 @@ export function BranchToolbarBranchSelector({
+   onStartFromOriginChange,
+   onCheckoutPullRequestRequest,
+   onComposerFocusRequest,
++  presentation = "default",
++  phoneContextContent,
+ }: BranchToolbarBranchSelectorProps) {
+   const startFromOriginSwitchId = useId();
+   const stopThreadSession = useAtomCommand(threadEnvironment.stopSession, "thread session stop");
+@@ -680,6 +686,72 @@ export function BranchToolbarBranchSelector({
+     );
+   }
+ 
++  if (presentation === "phone") {
++    return (
++      <PhoneBranchSelector
++        className={className}
++        open={isBranchMenuOpen}
++        onOpenChange={handleOpenChange}
++        phoneContextContent={phoneContextContent}
++        triggerLabel={triggerLabel}
++        disabled={isInitialBranchesLoadPending || isBranchActionPending}
++        branchPr={
++          branchPr && branchPrStatus
++            ? {
++                number: branchPr.number,
++                state: branchPr.state,
++                colorClass: branchPrStatus.colorClass,
++              }
++            : null
++        }
++        sourceControlSingular={sourceControlPresentation.terminology.singular}
++        SourceControlIcon={SourceControlIcon}
++        onOpenPr={(event) => {
++          if (branchPrStatus) openPrLink(event, branchPrStatus.url);
++        }}
++        items={filteredBranchPickerItems}
++        checkoutPullRequestItemValue={checkoutPullRequestItemValue}
++        createBranchItemValue={createBranchItemValue}
++        prReference={prReference}
++        trimmedBranchQuery={trimmedBranchQuery}
++        branchByName={branchByName}
++        activeProjectCwd={activeProjectCwd}
++        resolvedActiveBranch={resolvedActiveBranch}
++        onSelectBranch={selectBranch}
++        onCreateRef={createRef}
++        {...(prReference && onCheckoutPullRequestRequest
++          ? {
++              onCheckoutPullRequest: () => {
++                onComposerFocusRequest?.();
++                onCheckoutPullRequestRequest(prReference);
++              },
++            }
++          : {})}
++        branchQuery={branchQuery}
++        onBranchQueryChange={setBranchQuery}
++        branchListRef={branchListRef}
++        hasNextPage={hasNextPage}
++        isFetchingNextPage={isFetchingNextPage}
++        onFetchNextPage={fetchNextBranchPage}
++        onListLayout={() => {
++          updateBranchListScrollFades();
++          maybeFetchNextBranchPage();
++        }}
++        onListScroll={() => {
++          updateBranchListScrollFades();
++          maybeFetchNextBranchPage();
++        }}
++        showTopBranchScrollFade={showTopBranchScrollFade}
++        showBottomBranchScrollFade={showBottomBranchScrollFade}
++        isSelectingWorktreeBase={isSelectingWorktreeBase}
++        startFromOriginSwitchId={startFromOriginSwitchId}
++        startFromOrigin={startFromOrigin}
++        onStartFromOriginChange={onStartFromOriginChange}
++        branchStatusText={branchStatusText}
++      />
++    );
++  }
++
+   return (
+     <Combobox
+       items={branchPickerItems}
+diff --git a/apps/web/src/components/ChatView.tsx b/apps/web/src/components/ChatView.tsx
+--- a/apps/web/src/components/ChatView.tsx
++++ b/apps/web/src/components/ChatView.tsx
+@@ -116,6 +116,7 @@ import { useTurnDiffSummaries } from "../hooks/useTurnDiffSummaries";
+ import { isCommandPaletteOpen } from "../commandPaletteBus";
+ import { buildTemporaryWorktreeBranchName } from "@t3tools/shared/git";
+ import { useMediaQuery } from "../hooks/useMediaQuery";
++import { useIsPhone } from "../mobile/shared/useIsPhone";
+ import { RIGHT_PANEL_INLINE_LAYOUT_MEDIA_QUERY } from "../rightPanelLayout";
+ import {
+   selectActiveRightPanel,
+@@ -1265,6 +1266,7 @@ function ChatViewContent(props: ChatViewProps) {
+   const [pendingUserInputQuestionIndexByRequestId, setPendingUserInputQuestionIndexByRequestId] =
+     useState<Record<string, number>>({});
+   const shouldUsePlanSidebarSheet = useMediaQuery(RIGHT_PANEL_INLINE_LAYOUT_MEDIA_QUERY);
++  const isPhone = useIsPhone();
+   // Tracks whether the user explicitly dismissed the sidebar for the active turn.
+   const planSidebarDismissedForTurnRef = useRef<string | null>(null);
+   // When set, the thread-change reset effect will open the sidebar instead of closing it.
+@@ -5607,7 +5609,7 @@ function ChatViewContent(props: ChatViewProps) {
+ 
+   return (
+     <div className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden bg-background">
+-      {rightPanelOpen && !shouldUsePlanSidebarSheet ? panelLayoutControls : null}
++      {rightPanelOpen && !shouldUsePlanSidebarSheet && !isPhone ? panelLayoutControls : null}
+       <div
+         className={cn(
+           "flex min-h-0 min-w-0 flex-col overflow-x-hidden",
+@@ -5631,7 +5633,7 @@ function ChatViewContent(props: ChatViewProps) {
+             COLLAPSED_SIDEBAR_TITLEBAR_INSET_CLASS,
+           )}
+         >
+-          {!rightPanelOpen ? panelLayoutControls : null}
++          {!rightPanelOpen && !isPhone ? panelLayoutControls : null}
+           <ChatHeader
+             activeThreadEnvironmentId={activeThread.environmentId}
+             activeThreadId={activeThread.id}
+@@ -5646,8 +5648,13 @@ function ChatViewContent(props: ChatViewProps) {
+             }
+             keybindings={keybindings}
+             availableEditors={availableEditors}
++            terminalAvailable={activeProject !== null}
++            terminalOpen={terminalUiState.terminalOpen}
+             rightPanelOpen={rightPanelOpen}
++            rightPanelAvailable={activeProject !== null}
+             gitCwd={gitCwd}
++            onToggleTerminal={toggleTerminalVisibility}
++            onToggleRightPanel={toggleRightPanel}
+             onRunProjectScript={runProjectScript}
+             onAddProjectScript={saveProjectScript}
+             onUpdateProjectScript={updateProjectScript}
+diff --git a/apps/web/src/components/chat/ChatHeader.tsx b/apps/web/src/components/chat/ChatHeader.tsx
+--- a/apps/web/src/components/chat/ChatHeader.tsx
++++ b/apps/web/src/components/chat/ChatHeader.tsx
+@@ -18,5 +18,7 @@ import { useT3ProjectFileScripts } from "~/hooks/useT3ProjectFileScripts";
+ import { ProjectFavicon } from "../ProjectFavicon";
+ import { cn } from "~/lib/utils";
++import { PhoneChatHeaderActions } from "../../mobile/phone/PhoneChatHeaderActions";
++import { useIsPhone } from "../../mobile/shared/useIsPhone";
+ 
+ interface ChatHeaderProps {
+   activeThreadEnvironmentId: EnvironmentId;
+@@ -31,8 +33,13 @@ interface ChatHeaderProps {
+   preferredScriptId: string | null;
+   keybindings: ResolvedKeybindingsConfig;
+   availableEditors: ReadonlyArray<EditorId>;
++  terminalAvailable: boolean;
++  terminalOpen: boolean;
+   rightPanelOpen: boolean;
++  rightPanelAvailable: boolean;
+   gitCwd: string | null;
++  onToggleTerminal: () => void;
++  onToggleRightPanel: () => void;
+   onRunProjectScript: (script: ProjectScript) => void;
+   onAddProjectScript: (input: NewProjectScriptInput) => Promise<ProjectScriptActionResult>;
+   onUpdateProjectScript: (
+@@ -66,8 +73,13 @@ export const ChatHeader = memo(function ChatHeader({
+   preferredScriptId,
+   keybindings,
+   availableEditors,
++  terminalAvailable,
++  terminalOpen,
+   rightPanelOpen,
++  rightPanelAvailable,
+   gitCwd,
++  onToggleTerminal,
++  onToggleRightPanel,
+   onRunProjectScript,
+   onAddProjectScript,
+   onUpdateProjectScript,
+@@ -77,5 +89,6 @@ export const ChatHeader = memo(function ChatHeader({
+     activeProjectScripts ? activeProjectCwd : null,
+   );
++  const isPhone = useIsPhone();
+   const showOpenInPicker = shouldShowOpenInPicker({
+     activeProjectName,
+     activeThreadEnvironmentId,
+@@ -90,21 +103,28 @@ export const ChatHeader = memo(function ChatHeader({
+         {/* The project always leads the header: knowing which project a
+             thread lives in is priority zero, and the thread title alone
+             doesn't answer it. */}
+         {activeProjectName ? (
+-          <span className="inline-flex shrink-0 items-center gap-2">
++          <span
++            aria-label={isPhone ? activeProjectName : undefined}
++            className="inline-flex shrink-0 items-center gap-2"
++          >
+             <span className="inline-flex min-w-0 items-center gap-1.5">
+               <ProjectFavicon
+                 environmentId={activeThreadEnvironmentId}
+                 cwd={activeProjectCwd ?? ""}
+                 className="size-3.5"
+               />
+-              <span className="max-w-40 truncate text-sm font-medium text-muted-foreground">
+-                {activeProjectName}
+-              </span>
++              {!isPhone ? (
++                <span className="max-w-40 truncate text-sm font-medium text-muted-foreground">
++                  {activeProjectName}
++                </span>
++              ) : null}
+             </span>
+-            <span aria-hidden className="text-muted-foreground/40">
+-              /
+-            </span>
++            {!isPhone ? (
++              <span aria-hidden className="text-muted-foreground/40">
++                /
++              </span>
++            ) : null}
+           </span>
+         ) : null}
+         <Tooltip>
+@@ -121,35 +142,64 @@ export const ChatHeader = memo(function ChatHeader({
+         data-chat-header-actions
+         className={cn(
+           "flex shrink-0 items-center justify-end gap-2 @3xl/header-actions:gap-3",
+-          rightPanelOpen ? "pr-0" : "pr-16",
++          isPhone ? "gap-1" : rightPanelOpen ? "pr-0" : "pr-16",
+         )}
+       >
+-        {activeProjectScripts && (
+-          <ProjectScriptsControl
+-            scripts={activeProjectScripts}
+-            fileScripts={fileScripts}
+-            keybindings={keybindings}
+-            preferredScriptId={preferredScriptId}
+-            onRunScript={onRunProjectScript}
+-            onAddScript={onAddProjectScript}
+-            onUpdateScript={onUpdateProjectScript}
+-            onDeleteScript={onDeleteProjectScript}
+-          />
+-        )}
+-        {showOpenInPicker && (
+-          <OpenInPicker
+-            environmentId={activeThreadEnvironmentId}
+-            keybindings={keybindings}
+-            availableEditors={availableEditors}
+-            openInCwd={openInCwd}
+-          />
+-        )}
+-        {activeProjectName && (
+-          <GitActionsControl
+-            gitCwd={gitCwd}
+-            activeThreadRef={scopeThreadRef(activeThreadEnvironmentId, activeThreadId)}
+-            {...(draftId ? { draftId } : {})}
++        {isPhone ? (
++          <PhoneChatHeaderActions
++            activeThreadEnvironmentId={activeThreadEnvironmentId}
++            activeThreadId={activeThreadId}
++            {...(draftId ? { draftId } : {})}
++            activeProjectName={activeProjectName}
++            activeProjectCwd={activeProjectCwd}
++            openInCwd={openInCwd}
++            activeProjectScripts={activeProjectScripts}
++            preferredScriptId={preferredScriptId}
++            keybindings={keybindings}
++            availableEditors={availableEditors}
++            showOpenInPicker={showOpenInPicker}
++            terminalAvailable={terminalAvailable}
++            terminalOpen={terminalOpen}
++            rightPanelOpen={rightPanelOpen}
++            rightPanelAvailable={rightPanelAvailable}
++            gitCwd={gitCwd}
++            onToggleTerminal={onToggleTerminal}
++            onToggleRightPanel={onToggleRightPanel}
++            onRunProjectScript={onRunProjectScript}
++            onAddProjectScript={onAddProjectScript}
++            onUpdateProjectScript={onUpdateProjectScript}
++            onDeleteProjectScript={onDeleteProjectScript}
+           />
++        ) : (
++          <>
++            {activeProjectScripts ? (
++              <ProjectScriptsControl
++                scripts={activeProjectScripts}
++                fileScripts={fileScripts}
++                keybindings={keybindings}
++                preferredScriptId={preferredScriptId}
++                onRunScript={onRunProjectScript}
++                onAddScript={onAddProjectScript}
++                onUpdateScript={onUpdateProjectScript}
++                onDeleteScript={onDeleteProjectScript}
++              />
++            ) : null}
++            {showOpenInPicker ? (
++              <OpenInPicker
++                environmentId={activeThreadEnvironmentId}
++                keybindings={keybindings}
++                availableEditors={availableEditors}
++                openInCwd={openInCwd}
++              />
++            ) : null}
++            {activeProjectName ? (
++              <GitActionsControl
++                gitCwd={gitCwd}
++                activeThreadRef={scopeThreadRef(activeThreadEnvironmentId, activeThreadId)}
++                {...(draftId ? { draftId } : {})}
++              />
++            ) : null}
++          </>
+         )}
+       </div>
+     </div>

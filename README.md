@@ -25,15 +25,18 @@ The wrapper makes a small set of changes tailored to Android phones and tablets:
   and editor controls inside the overflow sheet;
 - gives phone sheets a drag handle, medium and full-height snap points, and swipe-down dismissal.
 
-Native Android adjustments are injected by `MainActivity`. Small web-client adaptations live as
-versioned files under `patches/`. During a build, `scripts/sync-web.mjs` clones the exact revision of
-the clean T3 Code checkout into a temporary directory, applies those patches, builds the web client,
-adds Capacitor-compatible safe-area fallbacks, and removes the temporary clone. The tablet layout is
-left unchanged by the phone-only toolbar patch.
+Mobile-only source lives under `mobile/`: shared Android behavior in `mobile/shared`, the compact
+interface in `mobile/phone`, and tablet-only behavior in `mobile/tablet`. The phone layout is enabled
+only below the phone breakpoint with a coarse pointer; tablets continue using the upstream layout.
+
+During a build, `scripts/sync-web.mjs` clones the exact revision of the clean T3 Code checkout into a
+temporary directory, copies the isolated mobile modules, applies the small integration patch, builds
+the web client, adds Capacitor-compatible safe-area fallbacks, and removes the temporary clone. The
+native bridge is packaged directly from `mobile/shared/android/assets`.
 
 ## Requirements
 
-- Node.js 22 or newer with Corepack
+- Node.js 24.13.1 or newer in the 24.x line with Corepack
 - pnpm 11
 - Android SDK and `adb`
 - JDK 21
@@ -94,19 +97,27 @@ builds.
 
 ## Updating from T3 Code
 
-Update the separate, clean T3 Code checkout, then rebuild this wrapper:
+The fixed update flow fetches and fast-forwards the separate T3 Code checkout, checks the mobile
+integration, and creates a new APK:
 
 ```sh
-git -C ../t3code pull --ff-only
-T3CODE_PRIMARY_URL=https://your-t3-code-server.example.com corepack pnpm build:android
+JAVA_HOME=/opt/homebrew/opt/openjdk@21 \
+  T3CODE_PRIMARY_URL=https://your-t3-code-server.example.com \
+  corepack pnpm update:android
 ```
 
-The build refuses to run when the source checkout has local changes. Wrapper modifications are
-applied automatically inside a disposable clone and never touch that checkout.
+The command refuses to update a dirty or locally divergent T3 Code checkout. Wrapper modifications
+are applied automatically inside a disposable clone and never touch the source files.
 
-If an upstream update changes one of the patched areas, `git apply --check` stops the build before
-anything is generated. Recreate the affected patch against the new upstream revision, save it in
-`patches/`, return the T3 Code checkout to a clean state, and rebuild.
+For a fast compatibility check without building:
+
+```sh
+corepack pnpm check:mobile
+```
+
+If the integration patch stops applying, only refresh the small connection points in
+`patches/mobile-integration.patch`; phone behavior remains in `mobile/phone`. After a successful
+build, verify one phone-width and one tablet-width layout before installing with `adb install -r`.
 
 ## License
 

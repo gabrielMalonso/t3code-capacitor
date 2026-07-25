@@ -1,20 +1,21 @@
 {
   "name": "t3code-capacitor",
   "version": "1.0.0",
-  "description": "Independent Capacitor Android wrapper for T3 Code",
   "private": true,
-  "license": "MIT",
+  "description": "Independent Capacitor Android wrapper for T3 Code",
   "homepage": "https://github.com/gabrielMalonso/t3code-capacitor#readme",
+  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/gabrielMalonso/t3code-capacitor.git"
   },
   "type": "module",
-  "packageManager": "pnpm@11.10.0",
   "scripts": {
+    "check:mobile": "node scripts/sync-web.mjs --check",
     "build:web": "node scripts/sync-web.mjs",
     "sync:android": "pnpm build:web && cap sync android",
     "build:android": "pnpm sync:android && cd android && ./gradlew assembleDebug",
+    "update:android": "node scripts/update-android.mjs",
     "install:android": "pnpm build:android && adb install -r android/app/build/outputs/apk/debug/app-debug.apk"
   },
   "dependencies": {
@@ -23,5 +24,6 @@
   },
   "devDependencies": {
     "@capacitor/cli": "8.4.2"
-  }
+  },
+  "packageManager": "pnpm@11.10.0"
 }
