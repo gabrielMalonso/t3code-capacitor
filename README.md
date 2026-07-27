@@ -119,6 +119,9 @@ If the integration patch stops applying, only refresh the small connection point
 `patches/mobile-integration.patch`; phone behavior remains in `mobile/phone`. After a successful
 build, verify one phone-width and one tablet-width layout before installing with `adb install -r`.
 
+The complete phone/tablet procedure, including data-preservation and failure rules, is documented in
+[`docs/ANDROID_UPDATE_PIPELINE.md`](docs/ANDROID_UPDATE_PIPELINE.md).
+
 ## License
 
 MIT
