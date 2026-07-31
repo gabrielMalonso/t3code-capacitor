@@ -10,7 +10,7 @@ diff --git a/apps/web/src/components/BranchToolbar.tsx b/apps/web/src/components
  import {
    type EnvMode,
    type EnvironmentOption,
-@@ -275,12 +277,13 @@ export const BranchToolbar = memo(function BranchToolbar({
+@@ -300,12 +302,13 @@ export const BranchToolbar = memo(function BranchToolbar({
      canPickEnvironment: showEnvironmentPicker,
    });
    const isMobile = useIsMobile();
@@ -25,7 +25,7 @@ diff --git a/apps/web/src/components/BranchToolbar.tsx b/apps/web/src/components
          <MobileRunContextSelector
            envLocked={envLocked}
            envModeLocked={envModeLocked}
-@@ -328,6 +331,24 @@ export const BranchToolbar = memo(function BranchToolbar({
+@@ -357,6 +360,24 @@ export const BranchToolbar = memo(function BranchToolbar({
          onStartFromOriginChange={onStartFromOriginChange}
          {...(onCheckoutPullRequestRequest ? { onCheckoutPullRequestRequest } : {})}
          {...(onComposerFocusRequest ? { onComposerFocusRequest } : {})}
@@ -53,7 +53,7 @@ diff --git a/apps/web/src/components/BranchToolbar.tsx b/apps/web/src/components
 diff --git a/apps/web/src/components/BranchToolbarBranchSelector.tsx b/apps/web/src/components/BranchToolbarBranchSelector.tsx
 --- a/apps/web/src/components/BranchToolbarBranchSelector.tsx
 +++ b/apps/web/src/components/BranchToolbarBranchSelector.tsx
-@@ -18,11 +18,13 @@ import {
+@@ -17,12 +17,14 @@ import {
    useRef,
    useState,
    useTransition,
@@ -66,8 +66,9 @@ diff --git a/apps/web/src/components/BranchToolbarBranchSelector.tsx b/apps/web/
 +import { PhoneBranchSelector } from "../mobile/phone/PhoneBranchSelector";
  import { readLocalApi } from "../localApi";
  import { useOpenPrLink } from "../lib/openPullRequestLink";
+ import { shouldLoadNextBranchPageAfterScroll } from "../state/paginatedBranches";
  import { usePaginatedBranches } from "../state/queries";
-@@ -72,6 +74,8 @@ interface BranchToolbarBranchSelectorProps {
+@@ -75,6 +77,8 @@ interface BranchToolbarBranchSelectorProps {
    onStartFromOriginChange: (startFromOrigin: boolean) => void;
    onCheckoutPullRequestRequest?: (reference: string) => void;
    onComposerFocusRequest?: () => void;
@@ -76,7 +77,7 @@ diff --git a/apps/web/src/components/BranchToolbarBranchSelector.tsx b/apps/web/
  }
  
  function toBranchActionErrorMessage(error: unknown): string {
-@@ -108,6 +112,8 @@ export function BranchToolbarBranchSelector({
+@@ -109,6 +113,8 @@ export function BranchToolbarBranchSelector({
    onStartFromOriginChange,
    onCheckoutPullRequestRequest,
    onComposerFocusRequest,
@@ -85,7 +86,7 @@ diff --git a/apps/web/src/components/BranchToolbarBranchSelector.tsx b/apps/web/
  }: BranchToolbarBranchSelectorProps) {
    const startFromOriginSwitchId = useId();
    const stopThreadSession = useAtomCommand(threadEnvironment.stopSession, "thread session stop");
-@@ -680,6 +686,72 @@ export function BranchToolbarBranchSelector({
+@@ -684,6 +690,72 @@ export function BranchToolbarBranchSelector({
      );
    }
  
@@ -169,7 +170,7 @@ diff --git a/apps/web/src/components/ChatView.tsx b/apps/web/src/components/Chat
  import { RIGHT_PANEL_INLINE_LAYOUT_MEDIA_QUERY } from "../rightPanelLayout";
  import {
    selectActiveRightPanel,
-@@ -1265,6 +1266,7 @@ function ChatViewContent(props: ChatViewProps) {
+@@ -1273,6 +1274,7 @@ function ChatViewContent(props: ChatViewProps) {
    const [pendingUserInputQuestionIndexByRequestId, setPendingUserInputQuestionIndexByRequestId] =
      useState<Record<string, number>>({});
    const shouldUsePlanSidebarSheet = useMediaQuery(RIGHT_PANEL_INLINE_LAYOUT_MEDIA_QUERY);
@@ -177,7 +178,7 @@ diff --git a/apps/web/src/components/ChatView.tsx b/apps/web/src/components/Chat
    // Tracks whether the user explicitly dismissed the sidebar for the active turn.
    const planSidebarDismissedForTurnRef = useRef<string | null>(null);
    // When set, the thread-change reset effect will open the sidebar instead of closing it.
-@@ -5607,7 +5609,7 @@ function ChatViewContent(props: ChatViewProps) {
+@@ -5638,7 +5640,7 @@ function ChatViewContent(props: ChatViewProps) {
  
    return (
      <div className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden bg-background">
@@ -186,7 +187,7 @@ diff --git a/apps/web/src/components/ChatView.tsx b/apps/web/src/components/Chat
        <div
          className={cn(
            "flex min-h-0 min-w-0 flex-col overflow-x-hidden",
-@@ -5631,7 +5633,7 @@ function ChatViewContent(props: ChatViewProps) {
+@@ -5662,7 +5664,7 @@ function ChatViewContent(props: ChatViewProps) {
              COLLAPSED_SIDEBAR_TITLEBAR_INSET_CLASS,
            )}
          >
@@ -195,7 +196,7 @@ diff --git a/apps/web/src/components/ChatView.tsx b/apps/web/src/components/Chat
            <ChatHeader
              activeThreadEnvironmentId={activeThread.environmentId}
              activeThreadId={activeThread.id}
-@@ -5646,8 +5648,13 @@ function ChatViewContent(props: ChatViewProps) {
+@@ -5677,9 +5679,14 @@ function ChatViewContent(props: ChatViewProps) {
              }
              keybindings={keybindings}
              availableEditors={availableEditors}
@@ -204,6 +205,7 @@ diff --git a/apps/web/src/components/ChatView.tsx b/apps/web/src/components/Chat
              rightPanelOpen={rightPanelOpen}
 +            rightPanelAvailable={activeProject !== null}
              gitCwd={gitCwd}
+             onNewThreadInProject={handleNewThreadInActiveProject}
 +            onToggleTerminal={toggleTerminalVisibility}
 +            onToggleRightPanel={toggleRightPanel}
              onRunProjectScript={runProjectScript}
@@ -212,7 +214,8 @@ diff --git a/apps/web/src/components/ChatView.tsx b/apps/web/src/components/Chat
 diff --git a/apps/web/src/components/chat/ChatHeader.tsx b/apps/web/src/components/chat/ChatHeader.tsx
 --- a/apps/web/src/components/chat/ChatHeader.tsx
 +++ b/apps/web/src/components/chat/ChatHeader.tsx
-@@ -18,5 +18,7 @@ import { useT3ProjectFileScripts } from "~/hooks/useT3ProjectFileScripts";
+@@ -19,6 +19,8 @@ import { usePrimaryEnvironmentId } from "../../state/environments";
+ import { useT3ProjectFileScripts } from "~/hooks/useT3ProjectFileScripts";
  import { ProjectFavicon } from "../ProjectFavicon";
  import { cn } from "~/lib/utils";
 +import { PhoneChatHeaderActions } from "../../mobile/phone/PhoneChatHeaderActions";
@@ -220,7 +223,7 @@ diff --git a/apps/web/src/components/chat/ChatHeader.tsx b/apps/web/src/componen
  
  interface ChatHeaderProps {
    activeThreadEnvironmentId: EnvironmentId;
-@@ -31,8 +33,13 @@ interface ChatHeaderProps {
+@@ -32,9 +34,14 @@ interface ChatHeaderProps {
    preferredScriptId: string | null;
    keybindings: ResolvedKeybindingsConfig;
    availableEditors: ReadonlyArray<EditorId>;
@@ -229,12 +232,13 @@ diff --git a/apps/web/src/components/chat/ChatHeader.tsx b/apps/web/src/componen
    rightPanelOpen: boolean;
 +  rightPanelAvailable: boolean;
    gitCwd: string | null;
+   onNewThreadInProject: () => void;
 +  onToggleTerminal: () => void;
 +  onToggleRightPanel: () => void;
    onRunProjectScript: (script: ProjectScript) => void;
    onAddProjectScript: (input: NewProjectScriptInput) => Promise<ProjectScriptActionResult>;
    onUpdateProjectScript: (
-@@ -66,8 +73,13 @@ export const ChatHeader = memo(function ChatHeader({
+@@ -68,9 +75,14 @@ export const ChatHeader = memo(function ChatHeader({
    preferredScriptId,
    keybindings,
    availableEditors,
@@ -243,43 +247,31 @@ diff --git a/apps/web/src/components/chat/ChatHeader.tsx b/apps/web/src/componen
    rightPanelOpen,
 +  rightPanelAvailable,
    gitCwd,
+   onNewThreadInProject,
 +  onToggleTerminal,
 +  onToggleRightPanel,
    onRunProjectScript,
    onAddProjectScript,
    onUpdateProjectScript,
-@@ -77,5 +89,6 @@ export const ChatHeader = memo(function ChatHeader({
+@@ -81,6 +93,7 @@ export const ChatHeader = memo(function ChatHeader({
+     activeThreadEnvironmentId,
      activeProjectScripts ? activeProjectCwd : null,
    );
 +  const isPhone = useIsPhone();
    const showOpenInPicker = shouldShowOpenInPicker({
      activeProjectName,
      activeThreadEnvironmentId,
-@@ -90,21 +103,28 @@ export const ChatHeader = memo(function ChatHeader({
-         {/* The project always leads the header: knowing which project a
-             thread lives in is priority zero, and the thread title alone
-             doesn't answer it. */}
-         {activeProjectName ? (
--          <span className="inline-flex shrink-0 items-center gap-2">
-+          <span
-+            aria-label={isPhone ? activeProjectName : undefined}
-+            className="inline-flex shrink-0 items-center gap-2"
-+          >
-             <span className="inline-flex min-w-0 items-center gap-1.5">
-               <ProjectFavicon
-                 environmentId={activeThreadEnvironmentId}
-                 cwd={activeProjectCwd ?? ""}
-                 className="size-3.5"
-               />
--              <span className="max-w-40 truncate text-sm font-medium text-muted-foreground">
--                {activeProjectName}
--              </span>
-+              {!isPhone ? (
-+                <span className="max-w-40 truncate text-sm font-medium text-muted-foreground">
-+                  {activeProjectName}
-+                </span>
-+              ) : null}
-             </span>
+@@ -110,13 +123,17 @@ export const ChatHeader = memo(function ChatHeader({
+                   cwd={activeProjectCwd ?? ""}
+                   className="size-3.5"
+                 />
+-                <span className="max-w-40 truncate text-sm font-medium">{activeProjectName}</span>
++                {!isPhone ? (
++                  <span className="max-w-40 truncate text-sm font-medium">{activeProjectName}</span>
++                ) : null}
+               </TooltipTrigger>
+               <TooltipPopup side="top">New thread in {activeProjectName}</TooltipPopup>
+             </Tooltip>
 -            <span aria-hidden className="text-muted-foreground/40">
 -              /
 -            </span>
@@ -291,7 +283,7 @@ diff --git a/apps/web/src/components/chat/ChatHeader.tsx b/apps/web/src/componen
            </span>
          ) : null}
          <Tooltip>
-@@ -121,35 +142,64 @@ export const ChatHeader = memo(function ChatHeader({
+@@ -137,35 +154,64 @@ export const ChatHeader = memo(function ChatHeader({
          data-chat-header-actions
          className={cn(
            "flex shrink-0 items-center justify-end gap-2 @3xl/header-actions:gap-3",
@@ -304,26 +296,6 @@ diff --git a/apps/web/src/components/chat/ChatHeader.tsx b/apps/web/src/componen
 -            scripts={activeProjectScripts}
 -            fileScripts={fileScripts}
 -            keybindings={keybindings}
--            preferredScriptId={preferredScriptId}
--            onRunScript={onRunProjectScript}
--            onAddScript={onAddProjectScript}
--            onUpdateScript={onUpdateProjectScript}
--            onDeleteScript={onDeleteProjectScript}
--          />
--        )}
--        {showOpenInPicker && (
--          <OpenInPicker
--            environmentId={activeThreadEnvironmentId}
--            keybindings={keybindings}
--            availableEditors={availableEditors}
--            openInCwd={openInCwd}
--          />
--        )}
--        {activeProjectName && (
--          <GitActionsControl
--            gitCwd={gitCwd}
--            activeThreadRef={scopeThreadRef(activeThreadEnvironmentId, activeThreadId)}
--            {...(draftId ? { draftId } : {})}
 +        {isPhone ? (
 +          <PhoneChatHeaderActions
 +            activeThreadEnvironmentId={activeThreadEnvironmentId}
@@ -333,15 +305,31 @@ diff --git a/apps/web/src/components/chat/ChatHeader.tsx b/apps/web/src/componen
 +            activeProjectCwd={activeProjectCwd}
 +            openInCwd={openInCwd}
 +            activeProjectScripts={activeProjectScripts}
-+            preferredScriptId={preferredScriptId}
-+            keybindings={keybindings}
-+            availableEditors={availableEditors}
+             preferredScriptId={preferredScriptId}
+-            onRunScript={onRunProjectScript}
+-            onAddScript={onAddProjectScript}
+-            onUpdateScript={onUpdateProjectScript}
+-            onDeleteScript={onDeleteProjectScript}
+-          />
+-        )}
+-        {showOpenInPicker && (
+-          <OpenInPicker
+-            environmentId={activeThreadEnvironmentId}
+             keybindings={keybindings}
+             availableEditors={availableEditors}
+-            openInCwd={openInCwd}
+-          />
+-        )}
+-        {activeProjectName && (
+-          <GitActionsControl
 +            showOpenInPicker={showOpenInPicker}
 +            terminalAvailable={terminalAvailable}
 +            terminalOpen={terminalOpen}
 +            rightPanelOpen={rightPanelOpen}
 +            rightPanelAvailable={rightPanelAvailable}
-+            gitCwd={gitCwd}
+             gitCwd={gitCwd}
+-            activeThreadRef={scopeThreadRef(activeThreadEnvironmentId, activeThreadId)}
+-            {...(draftId ? { draftId } : {})}
 +            onToggleTerminal={onToggleTerminal}
 +            onToggleRightPanel={onToggleRightPanel}
 +            onRunProjectScript={onRunProjectScript}

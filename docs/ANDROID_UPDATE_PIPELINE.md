@@ -88,6 +88,7 @@ shasum -a 256 android/app/build/outputs/apk/debug/app-debug.apk
 Confirm that:
 
 - `revision` is the expected upstream commit;
+- `appVersion` is the latest upstream version tag reachable from that commit;
 - `patches` contains `mobile-integration.patch`;
 - `mobileSources` contains `shared`, `phone`, and `tablet`;
 - `primaryEnvironmentUrl` is the intended server;

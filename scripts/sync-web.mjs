@@ -47,6 +47,17 @@ if (sourceStatus) {
 }
 
 const revision = read("git", ["-C", sourceRoot, "rev-parse", "HEAD"]);
+const appVersion =
+  process.env.APP_VERSION?.trim() ||
+  read("git", [
+    "-C",
+    sourceRoot,
+    "describe",
+    "--tags",
+    "--abbrev=0",
+    "--match",
+    "v[0-9]*",
+  ]).replace(/^v/, "");
 const patchNames = (await readdir(patchesDir)).filter((name) => extname(name) === ".patch").sort();
 const buildRoot = await mkdtemp(join(tmpdir(), "t3code-capacitor-build-"));
 
@@ -79,6 +90,7 @@ try {
   } else {
     const buildEnvironment = {
       ...process.env,
+      APP_VERSION: appVersion,
       VITE_HOSTED_APP_CHANNEL: process.env.T3CODE_HOSTED_APP_CHANNEL ?? "nightly",
     };
     delete buildEnvironment.VITE_HTTP_URL;
@@ -105,6 +117,7 @@ try {
       patchNames,
       primaryEnvironmentUrl,
       revision,
+      appVersion,
     });
   }
 } finally {
@@ -203,6 +216,7 @@ async function patchGeneratedBundle(canonicalWebDir, buildMetadata) {
   const metadata = {
     source: relative(projectRoot, sourceRoot),
     revision: buildMetadata.revision,
+    appVersion: buildMetadata.appVersion,
     patches: buildMetadata.patchNames,
     mobileSources: ["shared", "phone", "tablet"],
     builtAt: new Date().toISOString(),
