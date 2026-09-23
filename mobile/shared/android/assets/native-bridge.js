@@ -69,14 +69,14 @@
     true,
   );
 
-  const syncStatusBar = () => {
+  const syncSystemBars = () => {
     const style = document.documentElement.classList.contains("dark") ? "DARK" : "LIGHT";
-    if (window.__t3CapacitorStatusBarStyle === style) return;
+    if (window.__t3CapacitorSystemBarsStyle === style) return;
     const systemBars = window.Capacitor?.Plugins?.SystemBars;
     if (!systemBars?.setStyle) return;
-    window.__t3CapacitorStatusBarStyle = style;
-    systemBars.setStyle({ style, bar: "StatusBar" }).catch(() => {
-      window.__t3CapacitorStatusBarStyle = null;
+    window.__t3CapacitorSystemBarsStyle = style;
+    systemBars.setStyle({ style }).catch(() => {
+      window.__t3CapacitorSystemBarsStyle = null;
     });
   };
 
@@ -117,7 +117,7 @@
     ) {
       suppressComposerAutofocus(document.activeElement);
     }
-    syncStatusBar();
+    syncSystemBars();
     set(document.documentElement, "min-height", "100svh");
     set(document.documentElement, "height", "100%");
     set(document.body, "min-height", "100svh");

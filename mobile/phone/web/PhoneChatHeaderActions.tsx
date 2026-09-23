@@ -1,3 +1,4 @@
+import { Dialog } from "@base-ui/react/dialog";
 import { scopeThreadRef } from "@t3tools/client-runtime/environment";
 import type {
   EditorId,
@@ -15,14 +16,7 @@ import ProjectScriptsControl, {
   type ProjectScriptActionResult,
 } from "~/components/ProjectScriptsControl";
 import { Button } from "~/components/ui/button";
-import {
-  Sheet,
-  SheetDescription,
-  SheetHeader,
-  SheetPanel,
-  SheetTitle,
-  SheetTrigger,
-} from "~/components/ui/sheet";
+import { Sheet, SheetDescription, SheetHeader, SheetTitle } from "~/components/ui/sheet";
 import { OpenInPicker } from "~/components/chat/OpenInPicker";
 import type { DraftId } from "~/composerDraftStore";
 import { useT3ProjectFileScripts } from "~/hooks/useT3ProjectFileScripts";
@@ -45,6 +39,7 @@ export interface PhoneChatHeaderActionsProps {
   rightPanelOpen: boolean;
   rightPanelAvailable: boolean;
   gitCwd: string | null;
+  onOpenPullRequest?: ((number: number) => void) | undefined;
   onToggleTerminal: () => void;
   onToggleRightPanel: () => void;
   onRunProjectScript: (script: ProjectScript) => void;
@@ -73,6 +68,7 @@ export function PhoneChatHeaderActions({
   rightPanelOpen,
   rightPanelAvailable,
   gitCwd,
+  onOpenPullRequest,
   onToggleTerminal,
   onToggleRightPanel,
   onRunProjectScript,
@@ -88,15 +84,16 @@ export function PhoneChatHeaderActions({
 
   return (
     <>
-      {activeProjectName ? (
+      {activeProjectName && gitCwd ? (
         <GitActionsControl
           gitCwd={gitCwd}
+          onOpenPullRequest={onOpenPullRequest}
           activeThreadRef={scopeThreadRef(activeThreadEnvironmentId, activeThreadId)}
           {...(draftId ? { draftId } : {})}
         />
       ) : null}
       <Sheet open={open} onOpenChange={setOpen}>
-        <SheetTrigger
+        <Dialog.Trigger
           render={
             <Button
               variant="ghost"
@@ -107,13 +104,16 @@ export function PhoneChatHeaderActions({
           }
         >
           <EllipsisIcon className="size-4.5" />
-        </SheetTrigger>
+        </Dialog.Trigger>
         <PhoneSheetPopup open={open} onDismiss={() => setOpen(false)}>
           <SheetHeader className="gap-1 px-5 pt-1 pb-3">
             <SheetTitle className="text-lg">Chat tools</SheetTitle>
             <SheetDescription>Panels, project actions, and external tools.</SheetDescription>
           </SheetHeader>
-          <SheetPanel className="space-y-2 px-3 pt-1 pb-5">
+          <div
+            data-slot="sheet-panel"
+            className="min-h-0 flex-1 overflow-y-auto space-y-2 px-3 pt-1 pb-5"
+          >
             <button
               type="button"
               aria-pressed={terminalOpen}
@@ -173,7 +173,7 @@ export function PhoneChatHeaderActions({
                 />
               </div>
             ) : null}
-          </SheetPanel>
+          </div>
         </PhoneSheetPopup>
       </Sheet>
     </>

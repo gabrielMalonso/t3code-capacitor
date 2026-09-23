@@ -3,10 +3,11 @@
   "appName": "T3 Code Capacitor",
   "webDir": "www",
   "loggingBehavior": "none",
+  "backgroundColor": "#0A0A0A",
   "plugins": {
     "SystemBars": {
       "insetsHandling": "css",
-      "style": "DEFAULT",
+      "style": "DARK",
       "hidden": false
     }
   }

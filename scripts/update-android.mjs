@@ -47,5 +47,6 @@ if (behind > 0) {
   run("git", ["-C", sourceRoot, "merge", "--ff-only", upstream]);
 }
 
+run("corepack", ["pnpm", "--dir", sourceRoot, "install", "--frozen-lockfile"]);
 run("corepack", ["pnpm", "check:mobile"]);
 run("corepack", ["pnpm", "build:android"]);

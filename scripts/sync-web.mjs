@@ -11,7 +11,6 @@ import {
   symlink,
   writeFile,
 } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { dirname, extname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -49,17 +48,14 @@ if (sourceStatus) {
 const revision = read("git", ["-C", sourceRoot, "rev-parse", "HEAD"]);
 const appVersion =
   process.env.APP_VERSION?.trim() ||
-  read("git", [
-    "-C",
-    sourceRoot,
-    "describe",
-    "--tags",
-    "--abbrev=0",
-    "--match",
-    "v[0-9]*",
-  ]).replace(/^v/, "");
+  read("git", ["-C", sourceRoot, "describe", "--tags", "--abbrev=0", "--match", "v[0-9]*"]).replace(
+    /^v/,
+    "",
+  );
 const patchNames = (await readdir(patchesDir)).filter((name) => extname(name) === ".patch").sort();
-const buildRoot = await mkdtemp(join(tmpdir(), "t3code-capacitor-build-"));
+const temporaryRoot = join(projectRoot, ".tmp");
+await mkdir(temporaryRoot, { recursive: true });
+const buildRoot = await mkdtemp(join(temporaryRoot, "t3code-capacitor-build-"));
 
 try {
   run("git", ["clone", "--shared", "--no-checkout", sourceRoot, buildRoot]);
@@ -73,23 +69,31 @@ try {
   }
 
   await linkInstalledDependencies(buildRoot);
+  // The clone reuses the source checkout's dependencies; pnpm must not replace those symlinks.
+  const cloneEnvironment = { ...process.env, pnpm_config_verify_deps_before_run: "false" };
   if (checkOnly) {
-    run("corepack", ["pnpm", "--dir", buildRoot, "fmt:check"]);
-    run("corepack", ["pnpm", "--dir", buildRoot, "--filter", "@t3tools/web", "typecheck"]);
-    run("corepack", [
-      "pnpm",
-      "--dir",
-      buildRoot,
-      "--filter",
-      "@t3tools/web",
-      "test",
-      "--",
-      "src/mobile/phone/phone-sheet.logic.test.ts",
-    ]);
+    run("corepack", ["pnpm", "--dir", buildRoot, "fmt:check"], { env: cloneEnvironment });
+    run("corepack", ["pnpm", "--dir", buildRoot, "--filter", "@t3tools/web", "typecheck"], {
+      env: cloneEnvironment,
+    });
+    run(
+      "corepack",
+      [
+        "pnpm",
+        "--dir",
+        buildRoot,
+        "--filter",
+        "@t3tools/web",
+        "test",
+        "--",
+        "src/mobile/phone/phone-sheet.logic.test.ts",
+      ],
+      { env: cloneEnvironment },
+    );
     console.log(`Mobile integration applies cleanly to ${revision}.`);
   } else {
     const buildEnvironment = {
-      ...process.env,
+      ...cloneEnvironment,
       APP_VERSION: appVersion,
       VITE_HOSTED_APP_CHANNEL: process.env.T3CODE_HOSTED_APP_CHANNEL ?? "nightly",
     };
@@ -121,7 +125,13 @@ try {
     });
   }
 } finally {
-  await rm(buildRoot, { recursive: true, force: true });
+  const canonicalBuildRoot = await realpath(buildRoot);
+  const canonicalProjectRoot = await realpath(projectRoot);
+  if (!canonicalBuildRoot.startsWith(`${canonicalProjectRoot}/.tmp/t3code-capacitor-build-`)) {
+    throw new Error(`Refusing to remove unexpected build directory: ${canonicalBuildRoot}`);
+  }
+  console.log(`Removing temporary build: ${canonicalBuildRoot}`);
+  await rm(canonicalBuildRoot, { recursive: true, force: true });
 }
 
 async function stageMobileWebSources(targetRoot) {

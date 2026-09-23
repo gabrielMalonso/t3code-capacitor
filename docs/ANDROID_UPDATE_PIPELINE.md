@@ -68,11 +68,12 @@ This command:
 1. fetches the configured upstream remote;
 2. refuses a dirty or locally divergent T3 Code checkout;
 3. fast-forwards the tracked upstream branch;
-4. applies the mobile modules and integration patch in a disposable clone;
-5. checks formatting and TypeScript;
-6. runs the web unit test suite;
-7. builds and synchronizes the hosted-client web bundle;
-8. generates the debug APK with Gradle.
+4. installs the upstream dependencies using its frozen lockfile;
+5. applies the mobile modules and integration patch in a disposable clone under `.tmp/`;
+6. checks formatting and TypeScript;
+7. runs the web unit test suite;
+8. builds and synchronizes the hosted-client web bundle;
+9. generates the debug APK with Gradle.
 
 If the integration no longer applies, update only `patches/mobile-integration.patch` and the
 corresponding files under `mobile/`. Keep the sibling T3 Code checkout unchanged.

@@ -1,95 +1,106 @@
 diff --git a/apps/web/src/components/BranchToolbar.tsx b/apps/web/src/components/BranchToolbar.tsx
+index 8e84ec5d1e..cd8f20b44c 100644
 --- a/apps/web/src/components/BranchToolbar.tsx
 +++ b/apps/web/src/components/BranchToolbar.tsx
-@@ -14,6 +14,8 @@ import { memo, useCallback, useMemo } from "react";
- import { useComposerDraftStore, type DraftId } from "../composerDraftStore";
- import { useProject, useThread, useThreadShellsForProjectRefs } from "../state/entities";
- import { useIsMobile } from "../hooks/useMediaQuery";
+@@ -1,3 +1,5 @@
 +import { PhoneRunContextPanel } from "../mobile/phone/PhoneRunContextPanel";
 +import { useIsPhone } from "../mobile/shared/useIsPhone";
+ import { scopeProjectRef, scopeThreadRef } from "@t3tools/client-runtime/environment";
+ import type { EnvironmentId, ThreadId } from "@t3tools/contracts";
  import {
-   type EnvMode,
-   type EnvironmentOption,
-@@ -300,12 +302,13 @@ export const BranchToolbar = memo(function BranchToolbar({
-     canPickEnvironment: showEnvironmentPicker,
+@@ -598,6 +600,7 @@ export const BranchToolbar = memo(function BranchToolbar({
    });
-   const isMobile = useIsMobile();
+   const [stripElement, setStripElement] = useState<HTMLDivElement | null>(null);
+   const labelsOverflow = useLabelsOverflow(stripElement);
 +  const isPhone = useIsPhone();
- 
+
    if (!hasActiveThread || !activeProject) return null;
- 
-   return (
-     <div className="chat-composer-context-strip -mt-4 mx-auto flex w-[calc(100%-2.75rem)] max-w-[calc(48rem-2.75rem)] items-center gap-2 px-1 pt-5 pb-1">
--      {isMobile ? (
-+      {isPhone ? null : isMobile ? (
-         <MobileRunContextSelector
-           envLocked={envLocked}
-           envModeLocked={envModeLocked}
-@@ -357,6 +360,24 @@ export const BranchToolbar = memo(function BranchToolbar({
-         onStartFromOriginChange={onStartFromOriginChange}
-         {...(onCheckoutPullRequestRequest ? { onCheckoutPullRequestRequest } : {})}
-         {...(onComposerFocusRequest ? { onComposerFocusRequest } : {})}
-+        presentation={isPhone ? "phone" : "default"}
-+        phoneContextContent={
-+          isPhone ? (
-+            <PhoneRunContextPanel
-+              envLocked={envLocked}
-+              envModeLocked={envModeLocked}
-+              environmentId={environmentId}
-+              availableEnvironments={availableEnvironments}
-+              showEnvironmentIndicator={showEnvironmentIndicator}
-+              onEnvironmentChange={onEnvironmentChange}
-+              effectiveEnvMode={effectiveEnvMode}
-+              activeWorktreePath={activeWorktreePath}
-+              onEnvModeChange={onEnvModeChange}
-+              previousWorktreeLabel={previousWorktreeLabel}
-+              onUsePreviousWorktree={onUsePreviousWorktree}
-+            />
-+          ) : undefined
-+        }
-       />
-     </div>
-   );
+
+@@ -613,7 +616,7 @@ export const BranchToolbar = memo(function BranchToolbar({
+         !contextStripVisible && "pointer-events-none invisible absolute inset-x-0 top-full",
+       )}
+     >
+-      {showGitControls ? (
++      {showGitControls && !isPhone ? (
+         <div className="contents @3xl/composer-surface:hidden">
+           <MobileRunContextSelector
+             forceNewWorktree={forceNewWorktree}
+@@ -634,7 +637,7 @@ export const BranchToolbar = memo(function BranchToolbar({
+           />
+         </div>
+       ) : null}
+-      {showGitControls || showEnvironmentIndicator ? (
++      {(!isPhone || !showGitControls) && (showGitControls || showEnvironmentIndicator) ? (
+         <div
+           className={cn(
+             "min-h-7 min-w-10 items-center gap-1 sm:min-h-6",
+@@ -707,6 +710,27 @@ export const BranchToolbar = memo(function BranchToolbar({
+           onStartFromOriginChange={onStartFromOriginChange}
+           {...(onCheckoutPullRequestRequest ? { onCheckoutPullRequestRequest } : {})}
+           {...(onComposerFocusRequest ? { onComposerFocusRequest } : {})}
++          presentation={isPhone ? "phone" : "default"}
++          phoneContextContent={
++            isPhone ? (
++              <PhoneRunContextPanel
++                forceNewWorktree={forceNewWorktree}
++                autoEnvironmentLabel={autoEnvironmentLabel}
++                onAutoEnvironment={onAutoEnvironment}
++                envLocked={envLocked}
++                envModeLocked={envModeLocked}
++                environmentId={environmentId}
++                availableEnvironments={availableEnvironments}
++                showEnvironmentIndicator={showEnvironmentIndicator}
++                onEnvironmentChange={onEnvironmentChange}
++                effectiveEnvMode={effectiveEnvMode}
++                activeWorktreePath={activeWorktreePath}
++                onEnvModeChange={onEnvModeChange}
++                previousWorktreeLabel={previousWorktreeLabel}
++                onUsePreviousWorktree={onUsePreviousWorktree}
++              />
++            ) : undefined
++          }
+         />
+       ) : null}
+     </ComposerSurface.ContextStrip>
 diff --git a/apps/web/src/components/BranchToolbarBranchSelector.tsx b/apps/web/src/components/BranchToolbarBranchSelector.tsx
+index a548d414bc..c6b54e05fb 100644
 --- a/apps/web/src/components/BranchToolbarBranchSelector.tsx
 +++ b/apps/web/src/components/BranchToolbarBranchSelector.tsx
-@@ -17,12 +17,14 @@ import {
-   useRef,
-   useState,
+@@ -1,3 +1,4 @@
++import { PhoneBranchSelector } from "../mobile/phone/PhoneBranchSelector";
+ import { useSupportsMultiplePullRequests } from "~/hooks/useSupportsMultiplePullRequests";
+ import { resolveThreadCurrentPullRequestLink } from "@t3tools/shared/threadPullRequests";
+ import { useRightPanelStore } from "../rightPanelStore";
+@@ -24,6 +25,7 @@ import {
    useTransition,
    type MouseEvent as ReactMouseEvent,
+   type Ref,
 +  type ReactNode,
  } from "react";
- 
+
  import { useComposerDraftStore, type DraftId } from "../composerDraftStore";
- import { writeTextToClipboard } from "../hooks/useCopyToClipboard";
-+import { PhoneBranchSelector } from "../mobile/phone/PhoneBranchSelector";
- import { readLocalApi } from "../localApi";
- import { useOpenPrLink } from "../lib/openPullRequestLink";
- import { shouldLoadNextBranchPageAfterScroll } from "../state/paginatedBranches";
- import { usePaginatedBranches } from "../state/queries";
-@@ -75,6 +77,8 @@ interface BranchToolbarBranchSelectorProps {
+@@ -95,6 +97,8 @@ interface BranchToolbarBranchSelectorProps {
    onStartFromOriginChange: (startFromOrigin: boolean) => void;
    onCheckoutPullRequestRequest?: (reference: string) => void;
    onComposerFocusRequest?: () => void;
 +  presentation?: "default" | "phone";
 +  phoneContextContent?: ReactNode;
  }
- 
+
  function toBranchActionErrorMessage(error: unknown): string {
-@@ -109,6 +113,8 @@ export function BranchToolbarBranchSelector({
+@@ -116,6 +120,8 @@ export function BranchToolbarBranchSelector({
    onStartFromOriginChange,
    onCheckoutPullRequestRequest,
    onComposerFocusRequest,
 +  presentation = "default",
 +  phoneContextContent,
  }: BranchToolbarBranchSelectorProps) {
+   const composerFloatingLayerProps = useComposerMenuProps();
    const startFromOriginSwitchId = useId();
-   const stopThreadSession = useAtomCommand(threadEnvironment.stopSession, "thread session stop");
-@@ -684,6 +690,72 @@ export function BranchToolbarBranchSelector({
+@@ -763,6 +769,72 @@ export function BranchToolbarBranchSelector({
      );
    }
- 
+
 +  if (presentation === "phone") {
 +    return (
 +      <PhoneBranchSelector
@@ -100,18 +111,18 @@ diff --git a/apps/web/src/components/BranchToolbarBranchSelector.tsx b/apps/web/
 +        triggerLabel={triggerLabel}
 +        disabled={isInitialBranchesLoadPending || isBranchActionPending}
 +        branchPr={
-+          branchPr && branchPrStatus
++          displayedPr && displayedPrStatus
 +            ? {
-+                number: branchPr.number,
-+                state: branchPr.state,
-+                colorClass: branchPrStatus.colorClass,
++                number: displayedPr.number,
++                state: displayedPr.state,
++                colorClass: displayedPrStatus.colorClass,
 +              }
 +            : null
 +        }
 +        sourceControlSingular={sourceControlPresentation.terminology.singular}
 +        SourceControlIcon={SourceControlIcon}
 +        onOpenPr={(event) => {
-+          if (branchPrStatus) openPrLink(event, branchPrStatus.url);
++          if (displayedPrStatus) openPrLink(event, displayedPrStatus.url);
 +        }}
 +        items={filteredBranchPickerItems}
 +        checkoutPullRequestItemValue={checkoutPullRequestItemValue}
@@ -160,142 +171,160 @@ diff --git a/apps/web/src/components/BranchToolbarBranchSelector.tsx b/apps/web/
      <Combobox
        items={branchPickerItems}
 diff --git a/apps/web/src/components/ChatView.tsx b/apps/web/src/components/ChatView.tsx
+index 9af410f572..b9a42116ea 100644
 --- a/apps/web/src/components/ChatView.tsx
 +++ b/apps/web/src/components/ChatView.tsx
-@@ -116,6 +116,7 @@ import { useTurnDiffSummaries } from "../hooks/useTurnDiffSummaries";
- import { isCommandPaletteOpen } from "../commandPaletteBus";
- import { buildTemporaryWorktreeBranchName } from "@t3tools/shared/git";
- import { useMediaQuery } from "../hooks/useMediaQuery";
+@@ -1,3 +1,4 @@
 +import { useIsPhone } from "../mobile/shared/useIsPhone";
- import { RIGHT_PANEL_INLINE_LAYOUT_MEDIA_QUERY } from "../rightPanelLayout";
- import {
-   selectActiveRightPanel,
-@@ -1273,6 +1274,7 @@ function ChatViewContent(props: ChatViewProps) {
-   const [pendingUserInputQuestionIndexByRequestId, setPendingUserInputQuestionIndexByRequestId] =
+ import { useLoadBalancedEnvironment } from "../hooks/useLoadBalancedEnvironment";
+ import { visibleThreadPullRequests } from "@t3tools/shared/threadPullRequests";
+ import type { UsageLimitSourceSnapshots } from "@t3tools/contracts";
+@@ -1749,6 +1750,7 @@ export default function ChatView(props: ChatViewProps) {
      useState<Record<string, number>>({});
-   const shouldUsePlanSidebarSheet = useMediaQuery(RIGHT_PANEL_INLINE_LAYOUT_MEDIA_QUERY);
+   const shouldUseRightPanelSheet = useMediaQuery(RIGHT_PANEL_INLINE_LAYOUT_MEDIA_QUERY);
+   const isMobileViewport = useMediaQuery("max-sm");
 +  const isPhone = useIsPhone();
-   // Tracks whether the user explicitly dismissed the sidebar for the active turn.
-   const planSidebarDismissedForTurnRef = useRef<string | null>(null);
-   // When set, the thread-change reset effect will open the sidebar instead of closing it.
-@@ -5638,7 +5640,7 @@ function ChatViewContent(props: ChatViewProps) {
- 
-   return (
-     <div className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden bg-background">
--      {rightPanelOpen && !shouldUsePlanSidebarSheet ? panelLayoutControls : null}
-+      {rightPanelOpen && !shouldUsePlanSidebarSheet && !isPhone ? panelLayoutControls : null}
+   const [terminalFocusRequestId, setTerminalFocusRequestId] = useState(0);
+   const [pullRequestDialogState, setPullRequestDialogState] =
+     useState<PullRequestDialogState | null>(null);
+@@ -9797,7 +9799,7 @@ export default function ChatView(props: ChatViewProps) {
+           ) : null}
+         </WizardPopup>
+       </Dialog>
+-      {rightPanelControlsAtRoot ? panelLayoutControls : null}
++      {rightPanelControlsAtRoot && !isPhone ? panelLayoutControls : null}
        <div
          className={cn(
            "flex min-h-0 min-w-0 flex-col overflow-x-hidden",
-@@ -5662,7 +5664,7 @@ function ChatViewContent(props: ChatViewProps) {
-             COLLAPSED_SIDEBAR_TITLEBAR_INSET_CLASS,
-           )}
-         >
--          {!rightPanelOpen ? panelLayoutControls : null}
-+          {!rightPanelOpen && !isPhone ? panelLayoutControls : null}
+@@ -9818,7 +9820,9 @@ export default function ChatView(props: ChatViewProps) {
+               className="pointer-events-none fixed top-[var(--workspace-controls-top)] right-[var(--workspace-controls-right)] h-[var(--workspace-topbar-height)] w-28 [-webkit-app-region:no-drag]"
+             />
+           ) : null}
+-          {!rightPanelControlsAtRoot && !rightPanelControlsInPanel ? panelLayoutControls : null}
++          {!rightPanelControlsAtRoot && !rightPanelControlsInPanel && !isPhone
++            ? panelLayoutControls
++            : null}
            <ChatHeader
-             activeThreadEnvironmentId={activeThread.environmentId}
-             activeThreadId={activeThread.id}
-@@ -5677,9 +5679,14 @@ function ChatViewContent(props: ChatViewProps) {
-             }
+             {...(!supportsPullRequests || activeProjectRepository === null
+               ? {}
+@@ -9837,6 +9841,11 @@ export default function ChatView(props: ChatViewProps) {
              keybindings={keybindings}
              availableEditors={availableEditors}
+             rightPanelOpen={rightPanelOpen}
 +            terminalAvailable={activeProject !== null}
 +            terminalOpen={terminalUiState.terminalOpen}
-             rightPanelOpen={rightPanelOpen}
 +            rightPanelAvailable={activeProject !== null}
-             gitCwd={gitCwd}
-             onNewThreadInProject={handleNewThreadInActiveProject}
 +            onToggleTerminal={toggleTerminalVisibility}
 +            onToggleRightPanel={toggleRightPanel}
-             onRunProjectScript={runProjectScript}
-             onAddProjectScript={saveProjectScript}
-             onUpdateProjectScript={updateProjectScript}
+             gitCwd={gitCwd}
+             onNewThreadInProject={handleNewThreadInActiveProject}
+             {...(activeDraftLogicalProjectKey
 diff --git a/apps/web/src/components/chat/ChatHeader.tsx b/apps/web/src/components/chat/ChatHeader.tsx
+index d03b7b613e..93b992c080 100644
 --- a/apps/web/src/components/chat/ChatHeader.tsx
 +++ b/apps/web/src/components/chat/ChatHeader.tsx
-@@ -19,6 +19,8 @@ import { usePrimaryEnvironmentId } from "../../state/environments";
- import { useT3ProjectFileScripts } from "~/hooks/useT3ProjectFileScripts";
- import { ProjectFavicon } from "../ProjectFavicon";
- import { cn } from "~/lib/utils";
+@@ -1,3 +1,5 @@
 +import { PhoneChatHeaderActions } from "../../mobile/phone/PhoneChatHeaderActions";
 +import { useIsPhone } from "../../mobile/shared/useIsPhone";
- 
- interface ChatHeaderProps {
-   activeThreadEnvironmentId: EnvironmentId;
-@@ -32,9 +34,14 @@ interface ChatHeaderProps {
-   preferredScriptId: string | null;
+ import {
+   type EnvironmentId,
+   type EditorId,
+@@ -67,6 +69,11 @@ interface ChatHeaderProps {
    keybindings: ResolvedKeybindingsConfig;
    availableEditors: ReadonlyArray<EditorId>;
+   rightPanelOpen: boolean;
 +  terminalAvailable: boolean;
 +  terminalOpen: boolean;
-   rightPanelOpen: boolean;
 +  rightPanelAvailable: boolean;
-   gitCwd: string | null;
-   onNewThreadInProject: () => void;
 +  onToggleTerminal: () => void;
 +  onToggleRightPanel: () => void;
-   onRunProjectScript: (script: ProjectScript) => void;
-   onAddProjectScript: (input: NewProjectScriptInput) => Promise<ProjectScriptActionResult>;
-   onUpdateProjectScript: (
-@@ -68,9 +75,14 @@ export const ChatHeader = memo(function ChatHeader({
-   preferredScriptId,
+   gitCwd: string | null;
+   readonly onOpenPullRequest?: ((number: number) => void) | undefined;
+   onNewThreadInProject: () => void;
+@@ -136,6 +143,11 @@ export const ChatHeader = memo(function ChatHeader({
    keybindings,
    availableEditors,
+   rightPanelOpen,
 +  terminalAvailable,
 +  terminalOpen,
-   rightPanelOpen,
 +  rightPanelAvailable,
-   gitCwd,
-   onNewThreadInProject,
 +  onToggleTerminal,
 +  onToggleRightPanel,
-   onRunProjectScript,
-   onAddProjectScript,
-   onUpdateProjectScript,
-@@ -81,6 +93,7 @@ export const ChatHeader = memo(function ChatHeader({
-     activeThreadEnvironmentId,
-     activeProjectScripts ? activeProjectCwd : null,
-   );
+   gitCwd,
+   onOpenPullRequest,
+   onNewThreadInProject,
+@@ -161,6 +173,7 @@ export const ChatHeader = memo(function ChatHeader({
+     });
+   }, [panelAnimationDurationMs, panelAnimationsActive]);
+   const isMobile = useIsMobile();
 +  const isPhone = useIsPhone();
-   const showOpenInPicker = shouldShowOpenInPicker({
-     activeProjectName,
-     activeThreadEnvironmentId,
-@@ -110,13 +123,17 @@ export const ChatHeader = memo(function ChatHeader({
-                   cwd={activeProjectCwd ?? ""}
-                   className="size-3.5"
-                 />
--                <span className="max-w-40 truncate text-sm font-medium">{activeProjectName}</span>
-+                {!isPhone ? (
-+                  <span className="max-w-40 truncate text-sm font-medium">{activeProjectName}</span>
-+                ) : null}
-               </TooltipTrigger>
-               <TooltipPopup side="top">New thread in {activeProjectName}</TooltipPopup>
-             </Tooltip>
--            <span aria-hidden className="text-muted-foreground/40">
--              /
--            </span>
+   // Side panels can leave a desktop header narrower than a phone.
+   const [isNarrowHeader, setIsNarrowHeader] = useState(false);
+   useEffect(() => {
+@@ -422,16 +435,20 @@ export const ChatHeader = memo(function ChatHeader({
+                   }
+                 >
+                   <ProjectFavicon project={activeProject} className="size-3.5" />
+-                  <WorkspaceBreadcrumbText className="max-w-40">
+-                    {activeProjectName}
+-                  </WorkspaceBreadcrumbText>
++                  {!isPhone ? (
++                    <WorkspaceBreadcrumbText className="max-w-40">
++                      {activeProjectName}
++                    </WorkspaceBreadcrumbText>
++                  ) : null}
+                 </TooltipTrigger>
+                 <TooltipPopup side="top">New thread in {activeProjectName}</TooltipPopup>
+               </Tooltip>
+             </WorkspaceBreadcrumbItem>
+-            <WorkspaceBreadcrumbSeparator>
+-              <WorkspaceBreadcrumbText>/</WorkspaceBreadcrumbText>
+-            </WorkspaceBreadcrumbSeparator>
 +            {!isPhone ? (
-+              <span aria-hidden className="text-muted-foreground/40">
-+                /
-+              </span>
++              <WorkspaceBreadcrumbSeparator>
++                <WorkspaceBreadcrumbText>/</WorkspaceBreadcrumbText>
++              </WorkspaceBreadcrumbSeparator>
 +            ) : null}
-           </span>
+           </>
          ) : null}
-         <Tooltip>
-@@ -137,35 +154,64 @@ export const ChatHeader = memo(function ChatHeader({
-         data-chat-header-actions
-         className={cn(
+         <WorkspaceBreadcrumbItem current className="min-w-10 flex-1">
+@@ -494,34 +511,66 @@ export const ChatHeader = memo(function ChatHeader({
            "flex shrink-0 items-center justify-end gap-2 @3xl/header-actions:gap-3",
--          rightPanelOpen ? "pr-0" : "pr-16",
-+          isPhone ? "gap-1" : rightPanelOpen ? "pr-0" : "pr-16",
+           // Reserve two panel toggles plus their 4px gaps and 1px edge inset.
+           // The page header adds 8px more right padding at sm.
+-          rightPanelOpen ? "pr-0" : "pr-[calc(--spacing(18)+1px)] sm:pr-[calc(--spacing(14)+1px)]",
++          isPhone
++            ? "gap-1 pr-0"
++            : rightPanelOpen
++              ? "pr-0"
++              : "pr-[calc(--spacing(18)+1px)] sm:pr-[calc(--spacing(14)+1px)]",
+           "[[data-panel-animations=true]_&]:motion-safe:transition-[padding-right] [[data-panel-animations=true]_&]:motion-safe:[transition-duration:var(--panel-animation-duration)] [[data-panel-animations=true]_&]:motion-safe:ease-out",
          )}
        >
--        {activeProjectScripts && (
--          <ProjectScriptsControl
--            scripts={activeProjectScripts}
--            fileScripts={fileScripts}
--            keybindings={keybindings}
+-        <Menu open={actionsCollapsed && actionsOpen} onOpenChange={setActionsOpen}>
+-          <MenuTrigger
+-            className={
+-              actionsCollapsed &&
+-              (activeProjectScripts || showOpenInPicker || (activeProjectName && gitCwd))
+-                ? undefined
+-                : "hidden"
+-            }
+-            render={<Button size="icon-sm" variant="ghost" aria-label="More header actions" />}
+-          >
+-            <EllipsisIcon className="size-4" />
+-          </MenuTrigger>
+-          <div ref={mountInlineActions} className="contents" />
+-          <MenuPopup
+-            data-chat-header-actions
+-            keepMounted
+-            aria-label="Header actions"
+-            align="end"
+-            finalFocus={actionsCollapsed ? undefined : false}
+-          >
+-            <div ref={mountMenuActions} className="contents" />
+-            {createPortal(headerActions, actionsContainer)}
+-          </MenuPopup>
+-        </Menu>
 +        {isPhone ? (
 +          <PhoneChatHeaderActions
 +            activeThreadEnvironmentId={activeThreadEnvironmentId}
@@ -305,68 +334,86 @@ diff --git a/apps/web/src/components/chat/ChatHeader.tsx b/apps/web/src/componen
 +            activeProjectCwd={activeProjectCwd}
 +            openInCwd={openInCwd}
 +            activeProjectScripts={activeProjectScripts}
-             preferredScriptId={preferredScriptId}
--            onRunScript={onRunProjectScript}
--            onAddScript={onAddProjectScript}
--            onUpdateScript={onUpdateProjectScript}
--            onDeleteScript={onDeleteProjectScript}
--          />
--        )}
--        {showOpenInPicker && (
--          <OpenInPicker
--            environmentId={activeThreadEnvironmentId}
-             keybindings={keybindings}
-             availableEditors={availableEditors}
--            openInCwd={openInCwd}
--          />
--        )}
--        {activeProjectName && (
--          <GitActionsControl
 +            showOpenInPicker={showOpenInPicker}
 +            terminalAvailable={terminalAvailable}
 +            terminalOpen={terminalOpen}
 +            rightPanelOpen={rightPanelOpen}
 +            rightPanelAvailable={rightPanelAvailable}
-             gitCwd={gitCwd}
--            activeThreadRef={scopeThreadRef(activeThreadEnvironmentId, activeThreadId)}
--            {...(draftId ? { draftId } : {})}
 +            onToggleTerminal={onToggleTerminal}
 +            onToggleRightPanel={onToggleRightPanel}
 +            onRunProjectScript={onRunProjectScript}
 +            onAddProjectScript={onAddProjectScript}
 +            onUpdateProjectScript={onUpdateProjectScript}
 +            onDeleteProjectScript={onDeleteProjectScript}
-           />
++            preferredScriptId={preferredScriptId}
++            keybindings={keybindings}
++            availableEditors={availableEditors}
++            gitCwd={gitCwd}
++            onOpenPullRequest={onOpenPullRequest}
++          />
 +        ) : (
-+          <>
-+            {activeProjectScripts ? (
-+              <ProjectScriptsControl
-+                scripts={activeProjectScripts}
-+                fileScripts={fileScripts}
-+                keybindings={keybindings}
-+                preferredScriptId={preferredScriptId}
-+                onRunScript={onRunProjectScript}
-+                onAddScript={onAddProjectScript}
-+                onUpdateScript={onUpdateProjectScript}
-+                onDeleteScript={onDeleteProjectScript}
-+              />
-+            ) : null}
-+            {showOpenInPicker ? (
-+              <OpenInPicker
-+                environmentId={activeThreadEnvironmentId}
-+                keybindings={keybindings}
-+                availableEditors={availableEditors}
-+                openInCwd={openInCwd}
-+              />
-+            ) : null}
-+            {activeProjectName ? (
-+              <GitActionsControl
-+                gitCwd={gitCwd}
-+                activeThreadRef={scopeThreadRef(activeThreadEnvironmentId, activeThreadId)}
-+                {...(draftId ? { draftId } : {})}
-+              />
-+            ) : null}
-+          </>
-         )}
++          <Menu open={actionsCollapsed && actionsOpen} onOpenChange={setActionsOpen}>
++            <MenuTrigger
++              className={
++                actionsCollapsed &&
++                (activeProjectScripts || showOpenInPicker || (activeProjectName && gitCwd))
++                  ? undefined
++                  : "hidden"
++              }
++              render={<Button size="icon-sm" variant="ghost" aria-label="More header actions" />}
++            >
++              <EllipsisIcon className="size-4" />
++            </MenuTrigger>
++            <div ref={mountInlineActions} className="contents" />
++            <MenuPopup
++              data-chat-header-actions
++              keepMounted
++              aria-label="Header actions"
++              align="end"
++              finalFocus={actionsCollapsed ? undefined : false}
++            >
++              <div ref={mountMenuActions} className="contents" />
++              {createPortal(headerActions, actionsContainer)}
++            </MenuPopup>
++          </Menu>
++        )}
        </div>
      </div>
+   );
+diff --git a/apps/web/src/components/chat/ModelPickerContent.tsx b/apps/web/src/components/chat/ModelPickerContent.tsx
+index 57a04b1a2f..3ae43f0607 100644
+--- a/apps/web/src/components/chat/ModelPickerContent.tsx
++++ b/apps/web/src/components/chat/ModelPickerContent.tsx
+@@ -1,3 +1,4 @@
++import { allowAutomaticSearchFocus } from "../../mobile/shared/searchFocus";
+ import {
+   ANTIGRAVITY_DEFAULT_MODEL,
+   type ProviderInstanceId,
+@@ -273,6 +274,7 @@ export const ModelPickerContent = memo(function ModelPickerContent(props: {
+   const updateSettings = useUpdateClientSettings();
+
+   const focusSearchInput = useCallback(() => {
++    if (!allowAutomaticSearchFocus()) return;
+     searchInputRef.current?.focus({ preventScroll: true });
+   }, []);
+
+diff --git a/apps/web/src/components/ui/popover.tsx b/apps/web/src/components/ui/popover.tsx
+index 5954f3d731..431cc64265 100644
+--- a/apps/web/src/components/ui/popover.tsx
++++ b/apps/web/src/components/ui/popover.tsx
+@@ -3,6 +3,7 @@
+ import { Popover as PopoverPrimitive } from "@base-ui/react/popover";
+
+ import { cn } from "~/lib/utils";
++import { allowAutomaticSearchFocus } from "../../mobile/shared/searchFocus";
+
+ const PopoverCreateHandle = PopoverPrimitive.createHandle;
+
+@@ -82,6 +83,7 @@ function PopoverPopup({
+             width !== "auto" && ["max-w-[calc(100vw-2rem)]", popoverPopupWidthClassName[width]],
+             className,
+           )}
++          initialFocus={allowAutomaticSearchFocus}
+           data-slot="popover-popup"
+           {...props}
+         >

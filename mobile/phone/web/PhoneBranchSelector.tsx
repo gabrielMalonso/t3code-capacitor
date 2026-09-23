@@ -22,13 +22,7 @@ import {
 import { ChangeRequestStatusIcon } from "~/components/ThreadStatusIndicators";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
-import {
-  Sheet,
-  SheetDescription,
-  SheetHeader,
-  SheetPanel,
-  SheetTitle,
-} from "~/components/ui/sheet";
+import { Sheet, SheetDescription, SheetHeader, SheetTitle } from "~/components/ui/sheet";
 import { Switch } from "~/components/ui/switch";
 import { cn } from "~/lib/utils";
 import { PhoneSheetPopup } from "./PhoneSheetPopup";
@@ -42,7 +36,7 @@ interface PhoneBranchSelectorProps {
   disabled: boolean;
   branchPr: {
     number: number;
-    state: string;
+    state: "open" | "closed" | "merged";
     colorClass: string;
   } | null;
   sourceControlSingular: string;
@@ -237,7 +231,7 @@ export function PhoneBranchSelector({
                 branchPr.colorClass,
               )}
             >
-              <ChangeRequestStatusIcon className="size-3" />
+              <ChangeRequestStatusIcon state={branchPr.state} className="size-3" />
               <span>#{branchPr.number}</span>
             </span>
           ) : null}
@@ -261,7 +255,10 @@ export function PhoneBranchSelector({
               Choose where this thread runs and what it checks out.
             </SheetDescription>
           </SheetHeader>
-          <SheetPanel className="space-y-5 px-3 pt-1 pb-5">
+          <div
+            data-slot="sheet-panel"
+            className="min-h-0 flex-1 overflow-y-auto space-y-5 px-3 pt-1 pb-5"
+          >
             {phoneContextContent}
             <section aria-labelledby="phone-source-control-label">
               <h3
@@ -296,6 +293,7 @@ export function PhoneBranchSelector({
                     }}
                   >
                     <ChangeRequestStatusIcon
+                      state={branchPr.state}
                       className={cn("size-4 shrink-0", branchPr.colorClass)}
                     />
                     <span className="min-w-0 flex-1">
@@ -311,7 +309,7 @@ export function PhoneBranchSelector({
                 ) : null}
               </div>
             </section>
-          </SheetPanel>
+          </div>
         </PhoneSheetPopup>
       </Sheet>
 
@@ -343,7 +341,6 @@ export function PhoneBranchSelector({
               <SearchIcon className="pointer-events-none absolute top-1/2 left-3 z-10 size-4 -translate-y-1/2 text-muted-foreground/55" />
               <Input
                 nativeInput
-                autoFocus
                 type="search"
                 aria-label="Search refs"
                 className="rounded-xl [&_input]:ps-9"

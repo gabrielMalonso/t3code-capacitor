@@ -19,6 +19,9 @@ import {
 import { cn } from "~/lib/utils";
 
 export interface PhoneRunContextPanelProps {
+  forceNewWorktree?: boolean;
+  autoEnvironmentLabel?: string | undefined;
+  onAutoEnvironment?: (() => void) | undefined;
   envLocked: boolean;
   envModeLocked: boolean;
   environmentId: EnvironmentId;
@@ -33,6 +36,9 @@ export interface PhoneRunContextPanelProps {
 }
 
 export const PhoneRunContextPanel = memo(function PhoneRunContextPanel({
+  forceNewWorktree = false,
+  autoEnvironmentLabel,
+  onAutoEnvironment,
   envLocked,
   envModeLocked,
   environmentId,
@@ -71,9 +77,26 @@ export const PhoneRunContextPanel = memo(function PhoneRunContextPanel({
             Run on
           </h3>
           <div className="rounded-2xl border border-border/60 bg-background/35 p-1">
+            {onAutoEnvironment ? (
+              <button
+                type="button"
+                aria-pressed={Boolean(autoEnvironmentLabel)}
+                className={choiceClass(Boolean(autoEnvironmentLabel))}
+                disabled={envLocked}
+                onClick={onAutoEnvironment}
+              >
+                <CloudIcon className="size-4 shrink-0" />
+                <span className="min-w-0 flex-1 truncate font-medium">
+                  {autoEnvironmentLabel ?? "Auto balance"}
+                </span>
+                {autoEnvironmentLabel ? (
+                  <CheckIcon className="size-4 shrink-0 text-primary" />
+                ) : null}
+              </button>
+            ) : null}
             {environmentOptions.map((env) => {
               const Icon = env.isPrimary ? MonitorIcon : CloudIcon;
-              const selected = env.environmentId === environmentId;
+              const selected = !autoEnvironmentLabel && env.environmentId === environmentId;
               return (
                 <button
                   key={env.environmentId}
@@ -105,7 +128,7 @@ export const PhoneRunContextPanel = memo(function PhoneRunContextPanel({
             type="button"
             aria-pressed={effectiveEnvMode === "local"}
             className={choiceClass(effectiveEnvMode === "local")}
-            disabled={envModeLocked}
+            disabled={envModeLocked || forceNewWorktree}
             onClick={() => onEnvModeChange("local")}
           >
             {activeWorktreePath ? (
@@ -124,7 +147,7 @@ export const PhoneRunContextPanel = memo(function PhoneRunContextPanel({
             type="button"
             aria-pressed={effectiveEnvMode === "worktree"}
             className={choiceClass(effectiveEnvMode === "worktree")}
-            disabled={envModeLocked}
+            disabled={envModeLocked || forceNewWorktree}
             onClick={() => onEnvModeChange("worktree")}
           >
             <FolderGit2Icon className="size-4 shrink-0" />
@@ -139,7 +162,7 @@ export const PhoneRunContextPanel = memo(function PhoneRunContextPanel({
             <button
               type="button"
               className={choiceClass(false)}
-              disabled={envModeLocked}
+              disabled={envModeLocked || forceNewWorktree}
               onClick={onUsePreviousWorktree}
             >
               <HistoryIcon className="size-4 shrink-0" />
