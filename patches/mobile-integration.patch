@@ -1,5 +1,5 @@
 diff --git a/apps/web/src/components/BranchToolbar.tsx b/apps/web/src/components/BranchToolbar.tsx
-index 8e84ec5d1e..cd8f20b44c 100644
+index eca4fab601..8f80099134 100644
 --- a/apps/web/src/components/BranchToolbar.tsx
 +++ b/apps/web/src/components/BranchToolbar.tsx
 @@ -1,3 +1,5 @@
@@ -8,15 +8,15 @@ index 8e84ec5d1e..cd8f20b44c 100644
  import { scopeProjectRef, scopeThreadRef } from "@t3tools/client-runtime/environment";
  import type { EnvironmentId, ThreadId } from "@t3tools/contracts";
  import {
-@@ -598,6 +600,7 @@ export const BranchToolbar = memo(function BranchToolbar({
+@@ -614,6 +616,7 @@ export const BranchToolbar = memo(function BranchToolbar({
    });
    const [stripElement, setStripElement] = useState<HTMLDivElement | null>(null);
    const labelsOverflow = useLabelsOverflow(stripElement);
 +  const isPhone = useIsPhone();
-
+ 
    if (!hasActiveThread || !activeProject) return null;
-
-@@ -613,7 +616,7 @@ export const BranchToolbar = memo(function BranchToolbar({
+ 
+@@ -629,7 +632,7 @@ export const BranchToolbar = memo(function BranchToolbar({
          !contextStripVisible && "pointer-events-none invisible absolute inset-x-0 top-full",
        )}
      >
@@ -25,7 +25,7 @@ index 8e84ec5d1e..cd8f20b44c 100644
          <div className="contents @3xl/composer-surface:hidden">
            <MobileRunContextSelector
              forceNewWorktree={forceNewWorktree}
-@@ -634,7 +637,7 @@ export const BranchToolbar = memo(function BranchToolbar({
+@@ -651,7 +654,7 @@ export const BranchToolbar = memo(function BranchToolbar({
            />
          </div>
        ) : null}
@@ -34,7 +34,7 @@ index 8e84ec5d1e..cd8f20b44c 100644
          <div
            className={cn(
              "min-h-7 min-w-10 items-center gap-1 sm:min-h-6",
-@@ -707,6 +710,27 @@ export const BranchToolbar = memo(function BranchToolbar({
+@@ -721,6 +724,27 @@ export const BranchToolbar = memo(function BranchToolbar({
            onStartFromOriginChange={onStartFromOriginChange}
            {...(onCheckoutPullRequestRequest ? { onCheckoutPullRequestRequest } : {})}
            {...(onComposerFocusRequest ? { onComposerFocusRequest } : {})}
@@ -63,7 +63,7 @@ index 8e84ec5d1e..cd8f20b44c 100644
        ) : null}
      </ComposerSurface.ContextStrip>
 diff --git a/apps/web/src/components/BranchToolbarBranchSelector.tsx b/apps/web/src/components/BranchToolbarBranchSelector.tsx
-index a548d414bc..c6b54e05fb 100644
+index 17199bbf33..1581ccb4ab 100644
 --- a/apps/web/src/components/BranchToolbarBranchSelector.tsx
 +++ b/apps/web/src/components/BranchToolbarBranchSelector.tsx
 @@ -1,3 +1,4 @@
@@ -77,7 +77,7 @@ index a548d414bc..c6b54e05fb 100644
    type Ref,
 +  type ReactNode,
  } from "react";
-
+ 
  import { useComposerDraftStore, type DraftId } from "../composerDraftStore";
 @@ -95,6 +97,8 @@ interface BranchToolbarBranchSelectorProps {
    onStartFromOriginChange: (startFromOrigin: boolean) => void;
@@ -86,7 +86,7 @@ index a548d414bc..c6b54e05fb 100644
 +  presentation?: "default" | "phone";
 +  phoneContextContent?: ReactNode;
  }
-
+ 
  function toBranchActionErrorMessage(error: unknown): string {
 @@ -116,6 +120,8 @@ export function BranchToolbarBranchSelector({
    onStartFromOriginChange,
@@ -100,7 +100,7 @@ index a548d414bc..c6b54e05fb 100644
 @@ -763,6 +769,72 @@ export function BranchToolbarBranchSelector({
      );
    }
-
+ 
 +  if (presentation === "phone") {
 +    return (
 +      <PhoneBranchSelector
@@ -171,15 +171,16 @@ index a548d414bc..c6b54e05fb 100644
      <Combobox
        items={branchPickerItems}
 diff --git a/apps/web/src/components/ChatView.tsx b/apps/web/src/components/ChatView.tsx
-index 9af410f572..b9a42116ea 100644
+index f5c3825cee..bf578064a3 100644
 --- a/apps/web/src/components/ChatView.tsx
 +++ b/apps/web/src/components/ChatView.tsx
-@@ -1,3 +1,4 @@
+@@ -1,3 +1,5 @@
++import { useAndroidBackPanel } from "../mobile/shared/androidBack";
 +import { useIsPhone } from "../mobile/shared/useIsPhone";
  import { useLoadBalancedEnvironment } from "../hooks/useLoadBalancedEnvironment";
  import { visibleThreadPullRequests } from "@t3tools/shared/threadPullRequests";
  import type { UsageLimitSourceSnapshots } from "@t3tools/contracts";
-@@ -1749,6 +1750,7 @@ export default function ChatView(props: ChatViewProps) {
+@@ -1751,6 +1753,7 @@ export default function ChatView(props: ChatViewProps) {
      useState<Record<string, number>>({});
    const shouldUseRightPanelSheet = useMediaQuery(RIGHT_PANEL_INLINE_LAYOUT_MEDIA_QUERY);
    const isMobileViewport = useMediaQuery("max-sm");
@@ -187,7 +188,23 @@ index 9af410f572..b9a42116ea 100644
    const [terminalFocusRequestId, setTerminalFocusRequestId] = useState(0);
    const [pullRequestDialogState, setPullRequestDialogState] =
      useState<PullRequestDialogState | null>(null);
-@@ -9797,7 +9799,7 @@ export default function ChatView(props: ChatViewProps) {
+@@ -4040,6 +4043,7 @@ export default function ChatView(props: ChatViewProps) {
+     },
+     [activeThreadRef, storeSetTerminalOpen],
+   );
++  useAndroidBackPanel(terminalUiState.terminalOpen, () => setTerminalOpen(false));
+   const toggleTerminalVisibility = useCallback(() => {
+     if (!activeThreadRef) return;
+     const nextOpen = !terminalUiState.terminalOpen;
+@@ -4885,6 +4889,7 @@ export default function ChatView(props: ChatViewProps) {
+       useRightPanelStore.getState().close(activeThreadRef);
+     }
+   }, [activeRightPanelSurface, activeThreadRef]);
++  useAndroidBackPanel(rightPanelOpen && !shouldUseRightPanelSheet, closePreviewPanel);
+   const togglePreviewPanel = useCallback(() => {
+     if (!activeThreadRef || !isPreviewSupportedInRuntime()) return;
+     if (previewPanelOpen) {
+@@ -9830,7 +9835,7 @@ export default function ChatView(props: ChatViewProps) {
            ) : null}
          </WizardPopup>
        </Dialog>
@@ -196,7 +213,7 @@ index 9af410f572..b9a42116ea 100644
        <div
          className={cn(
            "flex min-h-0 min-w-0 flex-col overflow-x-hidden",
-@@ -9818,7 +9820,9 @@ export default function ChatView(props: ChatViewProps) {
+@@ -9851,7 +9856,9 @@ export default function ChatView(props: ChatViewProps) {
                className="pointer-events-none fixed top-[var(--workspace-controls-top)] right-[var(--workspace-controls-right)] h-[var(--workspace-topbar-height)] w-28 [-webkit-app-region:no-drag]"
              />
            ) : null}
@@ -207,7 +224,7 @@ index 9af410f572..b9a42116ea 100644
            <ChatHeader
              {...(!supportsPullRequests || activeProjectRepository === null
                ? {}
-@@ -9837,6 +9841,11 @@ export default function ChatView(props: ChatViewProps) {
+@@ -9870,6 +9877,11 @@ export default function ChatView(props: ChatViewProps) {
              keybindings={keybindings}
              availableEditors={availableEditors}
              rightPanelOpen={rightPanelOpen}
@@ -220,7 +237,7 @@ index 9af410f572..b9a42116ea 100644
              onNewThreadInProject={handleNewThreadInActiveProject}
              {...(activeDraftLogicalProjectKey
 diff --git a/apps/web/src/components/chat/ChatHeader.tsx b/apps/web/src/components/chat/ChatHeader.tsx
-index d03b7b613e..93b992c080 100644
+index bbe014ddbd..664a525690 100644
 --- a/apps/web/src/components/chat/ChatHeader.tsx
 +++ b/apps/web/src/components/chat/ChatHeader.tsx
 @@ -1,3 +1,5 @@
@@ -288,17 +305,13 @@ index d03b7b613e..93b992c080 100644
            </>
          ) : null}
          <WorkspaceBreadcrumbItem current className="min-w-10 flex-1">
-@@ -494,34 +511,66 @@ export const ChatHeader = memo(function ChatHeader({
+@@ -494,34 +511,62 @@ export const ChatHeader = memo(function ChatHeader({
            "flex shrink-0 items-center justify-end gap-2 @3xl/header-actions:gap-3",
            // Reserve two panel toggles plus their 4px gaps and 1px edge inset.
            // The page header adds 8px more right padding at sm.
--          rightPanelOpen ? "pr-0" : "pr-[calc(--spacing(18)+1px)] sm:pr-[calc(--spacing(14)+1px)]",
-+          isPhone
-+            ? "gap-1 pr-0"
-+            : rightPanelOpen
-+              ? "pr-0"
-+              : "pr-[calc(--spacing(18)+1px)] sm:pr-[calc(--spacing(14)+1px)]",
-           "[[data-panel-animations=true]_&]:motion-safe:transition-[padding-right] [[data-panel-animations=true]_&]:motion-safe:[transition-duration:var(--panel-animation-duration)] [[data-panel-animations=true]_&]:motion-safe:ease-out",
+-          rightPanelOpen ? "pr-0" : "pr-18.25 sm:pr-14.25",
++          isPhone ? "gap-1 pr-0" : rightPanelOpen ? "pr-0" : "pr-18.25 sm:pr-14.25",
+           "[[data-panel-animations=true]_&]:motion-safe:transition-[padding-right] [[data-panel-animations=true]_&]:motion-safe:duration-(--panel-animation-duration) [[data-panel-animations=true]_&]:motion-safe:ease-out",
          )}
        >
 -        <Menu open={actionsCollapsed && actionsOpen} onOpenChange={setActionsOpen}>
@@ -391,24 +404,24 @@ index 57a04b1a2f..3ae43f0607 100644
    type ProviderInstanceId,
 @@ -273,6 +274,7 @@ export const ModelPickerContent = memo(function ModelPickerContent(props: {
    const updateSettings = useUpdateClientSettings();
-
+ 
    const focusSearchInput = useCallback(() => {
 +    if (!allowAutomaticSearchFocus()) return;
      searchInputRef.current?.focus({ preventScroll: true });
    }, []);
-
+ 
 diff --git a/apps/web/src/components/ui/popover.tsx b/apps/web/src/components/ui/popover.tsx
 index 5954f3d731..431cc64265 100644
 --- a/apps/web/src/components/ui/popover.tsx
 +++ b/apps/web/src/components/ui/popover.tsx
 @@ -3,6 +3,7 @@
  import { Popover as PopoverPrimitive } from "@base-ui/react/popover";
-
+ 
  import { cn } from "~/lib/utils";
 +import { allowAutomaticSearchFocus } from "../../mobile/shared/searchFocus";
-
+ 
  const PopoverCreateHandle = PopoverPrimitive.createHandle;
-
+ 
 @@ -82,6 +83,7 @@ function PopoverPopup({
              width !== "auto" && ["max-w-[calc(100vw-2rem)]", popoverPopupWidthClassName[width]],
              className,
@@ -417,3 +430,20 @@ index 5954f3d731..431cc64265 100644
            data-slot="popover-popup"
            {...props}
          >
+diff --git a/apps/web/src/routes/__root.tsx b/apps/web/src/routes/__root.tsx
+index 8480dc70c7..8878554844 100644
+--- a/apps/web/src/routes/__root.tsx
++++ b/apps/web/src/routes/__root.tsx
+@@ -1,3 +1,4 @@
++import { useAndroidBackNavigation } from "../mobile/shared/useAndroidBackNavigation";
+ import { type ServerLifecycleWelcomePayload } from "@t3tools/contracts";
+ import { scopedProjectKey, scopeProjectRef } from "@t3tools/client-runtime/environment";
+ import { squashAtomCommandFailure } from "@t3tools/client-runtime/state/runtime";
+@@ -134,6 +135,7 @@ function RootRouteNotFoundView() {
+ }
+ 
+ function RootRouteView() {
++  useAndroidBackNavigation();
+   useEffect(() => installDesktopPasteAsText(window.desktopBridge, window), []);
+   const pathname = useLocation({ select: (location) => location.pathname });
+   const { authGateState } = Route.useRouteContext();

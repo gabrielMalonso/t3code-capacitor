@@ -20,6 +20,8 @@ The wrapper makes a small set of changes tailored to Android phones and tablets:
 - aligns the floating sidebar toggle below the status bar;
 - prevents the keyboard from opening automatically when a chat is opened or changed;
 - makes Enter insert a line break instead of sending, leaving submission to the send button;
+- makes Android Back dismiss the keyboard, overlays, and panels before navigating back, and
+  returns the app to the background when its navigation history is exhausted;
 - condenses the checkout, pull request, and branch controls into a phone-only work-context sheet;
 - keeps only Git and an overflow menu in the phone header, with terminal, side-panel, project-action,
   and editor controls inside the overflow sheet;
